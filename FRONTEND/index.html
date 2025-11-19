@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Energy & Resource Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Smart Energy & Resource Tracker</h1>
+            <p>Monitor and optimize your resource consumption - Malawi Vision 2063</p>
+        </header>
+
+        <div class="auth-forms">
+            <!-- Login Form -->
+            <div id="login-form" class="form-container">
+                <h2>Login to Your Account</h2>
+                <form id="loginForm">
+                    <input type="text" id="loginUsername" placeholder="Username" required>
+                    <input type="password" id="loginPassword" placeholder="Password" required>
+                    <button type="submit">Login</button>
+                </form>
+                <p>Don't have an account? <a href="#" onclick="showRegister()">Register here</a></p>
+            </div>
+
+            <!-- Register Form -->
+            <div id="register-form" class="form-container" style="display: none;">
+                <h2>Create New Account</h2>
+                <form id="registerForm">
+                    <input type="text" id="regUsername" placeholder="Username" required>
+                    <input type="email" id="regEmail" placeholder="Email" required>
+                    <input type="password" id="regPassword" placeholder="Password" required>
+                    <input type="tel" id="regPhone" placeholder="Phone Number (for SMS alerts)">
+                    
+                    <select id="userCategory" required onchange="toggleFamilyMembers()">
+                        <option value="">Select User Category</option>
+                    </select>
+                    
+                    <div id="familyMembersField" class="family-members-field">
+                        <input type="number" id="familyMembers" placeholder="Number of Family Members" min="1" value="1">
+                    </div>
+                    
+                    <!-- Custom Limits Section -->
+                    <div id="customLimitsField" class="custom-limits-field" style="display: none;">
+                        <h4>Custom Consumption Limits (Optional)</h4>
+                        <p class="limit-info">Default limits: <span id="defaultEnergyLimit">0</span> kWh energy, <span id="defaultWaterLimit">0</span> L water</p>
+                        
+                        <div class="form-group">
+                            <label>Custom Energy Limit (kWh)</label>
+                            <input type="number" step="1" id="customEnergyLimit" placeholder="Leave empty for default">
+                            <small>Set your monthly energy consumption limit</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Custom Water Limit (Liters)</label>
+                            <input type="number" step="100" id="customWaterLimit" placeholder="Leave empty for default">
+                            <small>Set your monthly water consumption limit</small>
+                        </div>
+                    </div>
+                    
+                    <button type="submit">Register</button>
+                </form>
+                <p>Already have an account? <a href="#" onclick="showLogin()">Login here</a></p>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" style="display: none;">
+            <nav class="navbar">
+                <h2>Welcome, <span id="userWelcome"></span>! <span id="categoryInfo"></span> <span id="limitsInfo"></span></h2>
+                <button onclick="logout()">Logout</button>
+            </nav>
+
+            <div class="dashboard-content">
+                <!-- Quick Stats -->
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <h3>Energy Usage</h3>
+                        <p id="energyStat">0 kWh</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Water Usage</h3>
+                        <p id="waterStat">0 L</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total Cost</h3>
+                        <p id="costStat">0 MWK</p>
+                    </div>
+                </div>
+
+                <!-- Monthly Progress -->
+                <div class="progress-container">
+                    <h3>Monthly Consumption Progress</h3>
+                    <div class="progress-section">
+                        <h4>Energy Usage</h4>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="energyProgressFill"></div>
+                        </div>
+                        <div class="progress-text" id="energyProgressText"></div>
+                    </div>
+                    <div class="progress-section">
+                        <h4>Water Usage</h4>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="waterProgressFill"></div>
+                        </div>
+                        <div class="progress-text" id="waterProgressText"></div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="chart-container">
+                    <h3>📈 Energy Analytics</h3>
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <h4>Weekly Energy Usage (kWh)</h4>
+                            <div id="energyUsageChart" class="chart"></div>
+                        </div>
+                        <div class="chart-card">
+                            <h4>Weekly Cost Trend (MWK)</h4>
+                            <div id="costTrendChart" class="chart"></div>
+                        </div>
+                    </div>
+                    <div id="monthlyBreakdown" class="breakdown-card"></div>
+                </div>
+
+                <!-- Data Entry Forms -->
+                <div class="entry-forms">
+                    <div class="form-card">
+                        <h3>⚡ Add Energy Reading</h3>
+                        <form id="energyForm">
+                            <div class="form-group">
+                                <label>Electricity Usage (kWh)</label>
+                                <input type="number" step="0.01" id="electricityUsage" placeholder="e.g., 25.5" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Reading Date</label>
+                                <input type="date" id="energyDate" required>
+                            </div>
+                            <p class="cost-note">💡 Cost calculated automatically using ESCOM Malawi tariffs</p>
+                            <button type="submit">Add Energy Entry</button>
+                        </form>
+                    </div>
+
+                    <div class="form-card">
+                        <h3>💧 Add Water Reading</h3>
+                        <form id="waterForm">
+                            <div class="form-group">
+                                <label>Water Usage (Liters)</label>
+                                <input type="number" step="0.01" id="waterUsage" placeholder="e.g., 1200" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Reading Date</label>
+                                <input type="date" id="waterDate" required>
+                            </div>
+                            <p class="cost-note">💡 Cost calculated automatically based on your user category</p>
+                            <button type="submit">Add Water Entry</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Profile Management -->
+                <div class="profile-section">
+                    <h3>👤 Profile & Limit Settings</h3>
+                    <div class="profile-card">
+                        <button onclick="showProfileModal()">Update Profile & Custom Limits</button>
+                        <p class="profile-note">Set custom consumption limits to receive personalized alerts</p>
+                    </div>
+                </div>
+
+                <!-- Notifications -->
+                <div class="notifications">
+                    <h3>🔔 Notifications & Conservation Tips</h3>
+                    <div id="notificationsList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div id="profileModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" onclick="closeProfileModal()">&times;</span>
+            <h3>Update Profile & Custom Limits</h3>
+            <form id="profileForm">
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="tel" id="profilePhone" placeholder="+265...">
+                </div>
+                <div class="form-group">
+                    <label>User Category</label>
+                    <select id="profileCategory" onchange="toggleProfileFamilyMembers()">
+                        <option value="single">Single User</option>
+                        <option value="family">Family</option>
+                        <option value="hostel">Hostel/Commercial</option>
+                        <option value="company">Company</option>
+                    </select>
+                </div>
+                <div id="profileFamilyMembersField" class="family-members-field">
+                    <div class="form-group">
+                        <label>Family Members</label>
+                        <input type="number" id="profileFamilyMembers" min="1" value="1">
+                    </div>
+                </div>
+                
+                <!-- Custom Limits in Profile -->
+                <div id="profileCustomLimitsField" class="custom-limits-field">
+                    <h4>Custom Consumption Limits</h4>
+                    <p class="limit-info">Default limits: <span id="profileDefaultEnergyLimit">0</span> kWh energy, <span id="profileDefaultWaterLimit">0</span> L water</p>
+                    
+                    <div class="form-group">
+                        <label>Custom Energy Limit (kWh)</label>
+                        <input type="number" step="1" id="profileCustomEnergyLimit" placeholder="Leave empty for default">
+                        <small>Set 0 or empty to use default limit</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Custom Water Limit (Liters)</label>
+                        <input type="number" step="100" id="profileCustomWaterLimit" placeholder="Leave empty for default">
+                        <small>Set 0 or empty to use default limit</small>
+                    </div>
+                </div>
+                
+                <button type="submit">Update Profile & Limits</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
