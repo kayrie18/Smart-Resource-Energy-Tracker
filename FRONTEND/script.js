@@ -215,20 +215,31 @@ document.getElementById('energyForm').addEventListener('submit', async function(
     const readingDate = document.getElementById('energyDate').value;
 
     try {
+        // Preview cost first
+        const previewResp = await fetch(`${API_BASE}/preview/energy`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ user_id: currentUser.user_id, electricity_usage: electricityUsage, reading_date: readingDate })
+        });
+        const preview = await previewResp.json();
+        if (!previewResp.ok) {
+            alert(preview.error || 'Error previewing energy cost');
+            return;
+        }
+
+        let confirmText = `Preview cost: MWK ${preview.calculated_cost}\nProjected monthly total: ${preview.projected_monthly_total} kWh`;
+        if (preview.warning) confirmText += `\nWARNING: ${preview.warning}`;
+        confirmText += '\n\nSubmit this energy reading and save to database?';
+
+        if (!confirm(confirmText)) return;
+
+        // If confirmed, submit entry
         const response = await fetch(`${API_BASE}/energy-entries`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                user_id: currentUser.user_id,
-                electricity_usage: electricityUsage,
-                reading_date: readingDate
-            })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ user_id: currentUser.user_id, electricity_usage: electricityUsage, reading_date: readingDate })
         });
-
         const data = await response.json();
-
         if (response.ok) {
             alert(`Energy entry added successfully! Cost: MWK ${data.calculated_cost}`);
             document.getElementById('energyForm').reset();
@@ -250,20 +261,31 @@ document.getElementById('waterForm').addEventListener('submit', async function(e
     const readingDate = document.getElementById('waterDate').value;
 
     try {
+        // Preview water cost first
+        const previewResp = await fetch(`${API_BASE}/preview/water`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ user_id: currentUser.user_id, water_usage: waterUsage, reading_date: readingDate })
+        });
+        const preview = await previewResp.json();
+        if (!previewResp.ok) {
+            alert(preview.error || 'Error previewing water cost');
+            return;
+        }
+
+        let confirmText = `Preview cost: MWK ${preview.calculated_cost}\nProjected monthly total: ${preview.projected_monthly_total} L`;
+        if (preview.warning) confirmText += `\nWARNING: ${preview.warning}`;
+        confirmText += '\n\nSubmit this water reading and save to database?';
+
+        if (!confirm(confirmText)) return;
+
+        // If confirmed, submit entry
         const response = await fetch(`${API_BASE}/water-entries`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                user_id: currentUser.user_id,
-                water_usage: waterUsage,
-                reading_date: readingDate
-            })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ user_id: currentUser.user_id, water_usage: waterUsage, reading_date: readingDate })
         });
-
         const data = await response.json();
-
         if (response.ok) {
             alert(`Water entry added successfully! Cost: MWK ${data.calculated_cost}`);
             document.getElementById('waterForm').reset();
@@ -462,10 +484,30 @@ async function loadAnalytics() {
                 }
                 limitsInfo.innerHTML = limitsText;
             }
+            // Show last update if available
+            if (data.last_update) {
+                const lu = new Date(data.last_update).toLocaleString();
+                const el = document.getElementById('lastUpdate');
+                if (el) el.textContent = lu;
+            }
         }
     } catch (error) {
         console.error('Error loading analytics:', error);
     }
+}
+
+// Download report for selected dates (CSV)
+function downloadReport() {
+    const start = document.getElementById('reportStart').value;
+    const end = document.getElementById('reportEnd').value;
+    if (!start || !end) {
+        alert('Please select both start and end dates for the report.');
+        return;
+    }
+
+    const url = `${API_BASE}/report/${currentUser.user_id}?start_date=${start}&end_date=${end}&format=csv`;
+    // Use browser to download
+    window.open(url, '_blank');
 }
 
 async function loadNotifications() {

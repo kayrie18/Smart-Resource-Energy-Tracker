@@ -1,11 +1,13 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from database import db
-from models import User, EnergyEntry, WaterEntry, Notification
+from modules import User, EnergyEntry, WaterEntry, Notification
 from config import Config
 from datetime import datetime, timedelta
 import json
 import requests
+import io
+import csv
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -173,37 +175,90 @@ def check_high_consumption(user, usage, resource_type='energy'):
         db.session.commit()
 
 def generate_conservation_tips(energy_entries, water_entries, user):
-    """Generate personalized conservation tips"""
+    """Generate personalized conservation tips with criteria and category-specific guidance.
+
+    Returns a list of structured tips: each tip is a dict with `title` and `detail`.
+    """
     tips = []
-    
+
     energy_limit, water_limit = get_user_limits(user)
     monthly_energy = get_monthly_usage(user.id, 'energy')
     monthly_water = get_monthly_usage(user.id, 'water')
-    
-    # Energy tips based on usage vs limit
-    if monthly_energy > energy_limit * 0.8:  # 80% of limit
-        tips.append("🚨 You're approaching your energy limit! Consider reducing usage.")
-    elif monthly_energy > energy_limit * 0.5:  # 50% of limit
-        tips.append("💡 Moderate energy usage. Good job staying within your limits.")
+
+    # Energy guidance
+    if energy_limit > 0:
+        energy_ratio = monthly_energy / energy_limit
     else:
-        tips.append("✅ Excellent! Your energy consumption is well within your limits.")
-    
-    # Water tips based on usage vs limit
-    if monthly_water > water_limit * 0.8:
-        tips.append("💧 You're approaching your water limit! Check for leaks and reduce usage.")
-    elif monthly_water > water_limit * 0.5:
-        tips.append("💧 Moderate water usage. You're managing your water well.")
+        energy_ratio = 0
+
+    if energy_ratio >= 1.0:
+        tips.append({
+            'title': 'Energy limit exceeded',
+            'detail': f"Your monthly energy usage ({monthly_energy} kWh) has exceeded your limit ({energy_limit} kWh). Immediate actions: reduce HVAC/AC runtime, unplug idle appliances, and schedule high-consumption tasks (ironing, washing) during off-peak times." 
+        })
+    elif energy_ratio >= 0.8:
+        tips.append({
+            'title': 'Approaching energy limit',
+            'detail': f"You're at {energy_ratio*100:.0f}% of your energy limit ({monthly_energy}/{energy_limit} kWh). Try dimming lights, using energy-efficient bulbs, and avoiding simultaneous heavy loads." 
+        })
+    elif energy_ratio >= 0.5:
+        tips.append({
+            'title': 'Moderate energy usage',
+            'detail': f"Good job — you're using {monthly_energy} kWh this month. Continue small habits: unplug chargers, use fans instead of AC when possible, and maintain appliances for efficiency." 
+        })
     else:
-        tips.append("💧 Great! Your water usage is well within your limits.")
-    
-    # General tips
-    tips.extend([
-        "🔌 Unplug chargers and appliances when not in use",
-        "🚿 Take shorter showers to save water and energy",
-        "🌞 Use natural ventilation instead of AC when possible"
-    ])
-    
-    return tips[:5]  # Return max 5 tips
+        tips.append({
+            'title': 'Low energy usage',
+            'detail': f"Excellent — your energy use ({monthly_energy} kWh) is well below the limit ({energy_limit} kWh). Keep monitoring to sustain efficiency." 
+        })
+
+    # Water guidance
+    if water_limit > 0:
+        water_ratio = monthly_water / water_limit
+    else:
+        water_ratio = 0
+
+    if water_ratio >= 1.0:
+        tips.append({
+            'title': 'Water limit exceeded',
+            'detail': f"Your monthly water usage ({monthly_water} L) exceeded the limit ({water_limit} L). Check for leaks, repair dripping taps, and avoid continuous outdoor watering." 
+        })
+    elif water_ratio >= 0.8:
+        tips.append({
+            'title': 'Approaching water limit',
+            'detail': f"You're at {water_ratio*100:.0f}% of your water limit. Reduce shower time, reuse greywater where safe, and inspect toilets/taps for leaks." 
+        })
+    elif water_ratio >= 0.5:
+        tips.append({
+            'title': 'Moderate water usage',
+            'detail': f"Nice — water usage ({monthly_water} L) is moderate. Continue good practices like fixing leaks and using efficient fixtures." 
+        })
+    else:
+        tips.append({
+            'title': 'Low water usage',
+            'detail': f"Great — your water consumption ({monthly_water} L) is low compared to your limit ({water_limit} L). Share tips with others to spread conservation." 
+        })
+
+    # Category-specific suggestions
+    category = user.user_category or 'single'
+    if category == 'family':
+        tips.append({
+            'title': 'Family tips',
+            'detail': 'For families, coordinate appliance use (stagger washing/drying), use energy-saving modes, and set household rules for shower times to reduce combined load.'
+        })
+    elif category in ['hostel', 'company']:
+        tips.append({
+            'title': 'Commercial tips',
+            'detail': 'Consider bulk-efficiency measures: install timers, use LED lighting, schedule maintenance, and monitor meter readings to find abnormal spikes.'
+        })
+    else:
+        tips.append({
+            'title': 'General tips',
+            'detail': 'Small changes compound: switch to LED bulbs, maintain appliances, insulate where possible, and fix leaks early.'
+        })
+
+    # Limit output size
+    return tips[:6]
 
 # Updated Registration Endpoint
 @app.route('/api/register', methods=['POST'])
@@ -233,6 +288,25 @@ def register():
         
         return jsonify({
             'message': 'User created successfully', 
+            'user_id': user.id,
+            'username': user.username
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    try:
+        data = request.get_json()
+        
+        user = User.query.filter_by(username=data.get('username')).first()
+        if not user or user.password != data.get('password'):
+            return jsonify({'error': 'Invalid username or password'}), 401
+        
+        return jsonify({
+            'message': 'Login successful',
             'user_id': user.id,
             'username': user.username
         })
@@ -312,68 +386,157 @@ def add_water_entry():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# Preview endpoints: return calculated price and context without saving
+@app.route('/api/preview/energy', methods=['POST'])
+def preview_energy():
+    try:
+        data = request.get_json()
+        user = User.query.get(data['user_id'])
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        monthly_usage_so_far = get_monthly_usage(data['user_id'], 'energy')
+        calculated_cost = calculate_electricity_cost(
+            user.user_category,
+            data['electricity_usage'],
+            monthly_usage_so_far
+        )
+
+        energy_limit, _ = get_user_limits(user)
+
+        projected_monthly_total = monthly_usage_so_far + data['electricity_usage']
+        warning = None
+        if projected_monthly_total > energy_limit:
+            warning = f"Projected monthly energy usage ({projected_monthly_total} kWh) exceeds your limit ({energy_limit} kWh)."
+
+        return jsonify({
+            'calculated_cost': calculated_cost,
+            'monthly_usage_so_far': monthly_usage_so_far,
+            'projected_monthly_total': projected_monthly_total,
+            'energy_limit': energy_limit,
+            'warning': warning
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/preview/water', methods=['POST'])
+def preview_water():
+    try:
+        data = request.get_json()
+        user = User.query.get(data['user_id'])
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        monthly_usage_so_far = get_monthly_usage(data['user_id'], 'water')
+        calculated_cost = calculate_water_cost(user.user_category, data['water_usage'])
+
+        _, water_limit = get_user_limits(user)
+        projected_monthly_total = monthly_usage_so_far + data['water_usage']
+        warning = None
+        if projected_monthly_total > water_limit:
+            warning = f"Projected monthly water usage ({projected_monthly_total} L) exceeds your limit ({water_limit} L)."
+
+        return jsonify({
+            'calculated_cost': calculated_cost,
+            'monthly_usage_so_far': monthly_usage_so_far,
+            'projected_monthly_total': projected_monthly_total,
+            'water_limit': water_limit,
+            'warning': warning
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Updated Analytics Endpoint
 @app.route('/api/analytics/<int:user_id>', methods=['GET'])
 def get_analytics(user_id):
     try:
-        thirty_days_ago = datetime.now() - timedelta(days=30)
-        
-        # Energy analytics
+        # Accept optional start_date and end_date (YYYY-MM-DD). Default to last 30 days.
+        start_str = request.args.get('start_date')
+        end_str = request.args.get('end_date')
+
+        if start_str and end_str:
+            start_date = datetime.fromisoformat(start_str)
+            end_date = datetime.fromisoformat(end_str) + timedelta(days=1)  # inclusive
+        else:
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=30)
+
+        # Query entries within range
         energy_entries = EnergyEntry.query.filter(
             EnergyEntry.user_id == user_id,
-            EnergyEntry.reading_date >= thirty_days_ago
+            EnergyEntry.reading_date >= start_date,
+            EnergyEntry.reading_date < end_date
         ).order_by(EnergyEntry.reading_date).all()
-        
-        # Water analytics
+
         water_entries = WaterEntry.query.filter(
             WaterEntry.user_id == user_id,
-            WaterEntry.reading_date >= thirty_days_ago
-        ).all()
-        
+            WaterEntry.reading_date >= start_date,
+            WaterEntry.reading_date < end_date
+        ).order_by(WaterEntry.reading_date).all()
+
         total_energy = sum(entry.electricity_usage for entry in energy_entries)
         total_water = sum(entry.water_usage for entry in water_entries)
         total_cost = sum(entry.cost for entry in energy_entries) + sum(entry.cost for entry in water_entries)
-        
+
         user = User.query.get(user_id)
         monthly_energy = get_monthly_usage(user_id, 'energy')
         monthly_water = get_monthly_usage(user_id, 'water')
         energy_limit, water_limit = get_user_limits(user)
-        
-        # Chart data
-        chart_data = {
-            'energy_usage': [
-                {'date': entry.reading_date.strftime('%Y-%m-%d'), 'usage': entry.electricity_usage}
-                for entry in energy_entries[-7:]  # Last 7 days for chart
-            ],
-            'cost_trend': [
-                {'date': entry.reading_date.strftime('%Y-%m-%d'), 'cost': entry.cost}
-                for entry in energy_entries[-7:]
-            ],
-            'monthly_breakdown': {
-                'energy_usage': total_energy,
-                'water_usage': total_water,
-                'total_cost': total_cost,
-                'energy_limit': energy_limit,
-                'water_limit': water_limit,
-                'monthly_energy_used': monthly_energy,
-                'monthly_water_used': monthly_water
-            }
-        }
-        
+
+        # Build series data (by entry) and simple daily aggregation
+        series = []
+        for entry in energy_entries:
+            series.append({'date': entry.reading_date.strftime('%Y-%m-%d'), 'usage': entry.electricity_usage, 'cost': entry.cost, 'type': 'energy'})
+        for entry in water_entries:
+            series.append({'date': entry.reading_date.strftime('%Y-%m-%d'), 'usage': entry.water_usage, 'cost': entry.cost, 'type': 'water'})
+
+        series = sorted(series, key=lambda x: x['date'])
+
+        # Last update timestamp
+        last_update = None
+        all_entries = sorted(energy_entries + water_entries, key=lambda x: x.reading_date) if (energy_entries or water_entries) else []
+        if all_entries:
+            last_update = all_entries[-1].reading_date.isoformat()
+
+        # Previous period comparison (same length immediately before start_date)
+        period_days = (end_date - start_date).days
+        prev_end = start_date
+        prev_start = start_date - timedelta(days=period_days)
+
+        prev_energy_entries = EnergyEntry.query.filter(
+            EnergyEntry.user_id == user_id,
+            EnergyEntry.reading_date >= prev_start,
+            EnergyEntry.reading_date < prev_end
+        ).all()
+
+        prev_water_entries = WaterEntry.query.filter(
+            WaterEntry.user_id == user_id,
+            WaterEntry.reading_date >= prev_start,
+            WaterEntry.reading_date < prev_end
+        ).all()
+
+        prev_total_energy = sum(e.electricity_usage for e in prev_energy_entries)
+        prev_total_water = sum(w.water_usage for w in prev_water_entries)
+
         tips = generate_conservation_tips(energy_entries, water_entries, user)
-        
-        # Calculate percentages
+
+        # Percentages for current period vs limits
         energy_percentage = min(100, (monthly_energy / energy_limit) * 100) if energy_limit > 0 else 0
         water_percentage = min(100, (monthly_water / water_limit) * 100) if water_limit > 0 else 0
-        
+
         return jsonify({
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'end_date': (end_date - timedelta(days=1)).strftime('%Y-%m-%d'),
+            'last_update': last_update,
             'total_energy': total_energy,
             'total_water': total_water,
             'total_cost': total_cost,
             'energy_trend': calculate_trend(energy_entries, 'electricity_usage'),
             'water_trend': calculate_trend(water_entries, 'water_usage'),
             'conservation_tips': tips,
-            'chart_data': chart_data,
+            'series': series,
             'user_category': user.user_category,
             'energy_limit': energy_limit,
             'water_limit': water_limit,
@@ -381,8 +544,68 @@ def get_analytics(user_id):
             'monthly_water_used': monthly_water,
             'energy_percentage': energy_percentage,
             'water_percentage': water_percentage,
+            'previous_period': {
+                'start_date': prev_start.strftime('%Y-%m-%d'),
+                'end_date': (prev_end - timedelta(days=1)).strftime('%Y-%m-%d'),
+                'total_energy': prev_total_energy,
+                'total_water': prev_total_water
+            },
             'has_custom_energy_limit': user.custom_energy_limit > 0,
             'has_custom_water_limit': user.custom_water_limit > 0
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/report/<int:user_id>', methods=['GET'])
+def generate_report(user_id):
+    try:
+        # Accept optional start_date and end_date
+        start_str = request.args.get('start_date')
+        end_str = request.args.get('end_date')
+        fmt = request.args.get('format', 'csv').lower()
+
+        if start_str and end_str:
+            start_date = datetime.fromisoformat(start_str)
+            end_date = datetime.fromisoformat(end_str) + timedelta(days=1)
+        else:
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=30)
+
+        energy_entries = EnergyEntry.query.filter(
+            EnergyEntry.user_id == user_id,
+            EnergyEntry.reading_date >= start_date,
+            EnergyEntry.reading_date < end_date
+        ).order_by(EnergyEntry.reading_date).all()
+
+        water_entries = WaterEntry.query.filter(
+            WaterEntry.user_id == user_id,
+            WaterEntry.reading_date >= start_date,
+            WaterEntry.reading_date < end_date
+        ).order_by(WaterEntry.reading_date).all()
+
+        # Build simple rows
+        rows = []
+        for e in energy_entries:
+            rows.append({'type':'energy','date': e.reading_date.strftime('%Y-%m-%d'), 'usage': e.electricity_usage, 'cost': e.cost})
+        for w in water_entries:
+            rows.append({'type':'water','date': w.reading_date.strftime('%Y-%m-%d'), 'usage': w.water_usage, 'cost': w.cost})
+
+        rows = sorted(rows, key=lambda x: x['date'])
+
+        if fmt == 'json':
+            return jsonify({'report': rows, 'start_date': start_date.strftime('%Y-%m-%d'), 'end_date': (end_date - timedelta(days=1)).strftime('%Y-%m-%d')})
+
+        # default csv
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['type','date','usage','cost'])
+        for r in rows:
+            writer.writerow([r['type'], r['date'], r['usage'], r['cost']])
+
+        csv_data = output.getvalue()
+        return Response(csv_data, mimetype='text/csv', headers={
+            'Content-Disposition': f'attachment; filename=report_{user_id}_{start_date.strftime("%Y%m%d")}_{(end_date - timedelta(days=1)).strftime("%Y%m%d")}.csv'
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

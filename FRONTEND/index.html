@@ -90,6 +90,16 @@
                     </div>
                 </div>
 
+                <div class="meta-controls" style="margin-top:10px; display:flex; gap:16px; align-items:center;">
+                    <div><strong>Last update:</strong> <span id="lastUpdate">-</span></div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <label style="font-size:0.9rem">Report:</label>
+                        <input type="date" id="reportStart"> 
+                        <input type="date" id="reportEnd"> 
+                        <button onclick="downloadReport()">Download CSV</button>
+                    </div>
+                </div>
+
                 <!-- Monthly Progress -->
                 <div class="progress-container">
                     <h3>Monthly Consumption Progress</h3>

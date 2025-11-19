@@ -1,5 +1,5 @@
 from app import app, db
-from models import User, EnergyEntry, WaterEntry, Notification
+from modules import User, EnergyEntry, WaterEntry, Notification
 from datetime import datetime, timedelta
 
 def init_database():
