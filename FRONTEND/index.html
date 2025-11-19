@@ -121,7 +121,8 @@
 
                 <!-- Charts Section -->
                 <div class="chart-container">
-                    <h3>📈 Energy Analytics</h3>
+                    <h3>📈 Usage Analytics & Trends</h3>
+                    <div id="usageTrendsChart" class="chart-card" style="margin-bottom:20px;"></div>
                     <div class="charts-grid">
                         <div class="chart-card">
                             <h4>Weekly Energy Usage (kWh)</h4>
@@ -135,7 +136,7 @@
                     <div id="monthlyBreakdown" class="breakdown-card"></div>
                 </div>
 
-                <!-- Data Entry Forms -->
+                <!-- Data Entry Forms (Centered) -->
                 <div class="entry-forms">
                     <div class="form-card">
                         <h3>⚡ Add Energy Reading</h3>
@@ -167,6 +168,14 @@
                             <p class="cost-note">💡 Cost calculated automatically based on your user category</p>
                             <button type="submit">Add Water Entry</button>
                         </form>
+                    </div>
+                </div>
+
+                <!-- Tips & Recommendations Section -->
+                <div class="tips-section" style="margin:30px 0; padding:20px; background:#f0f8ff; border-radius:10px; border-left:4px solid #3498db;">
+                    <h3>💡 Conservation Tips & Recommendations</h3>
+                    <div id="tipsList" style="display:grid; grid-template-columns:1fr; gap:15px; margin-top:15px;">
+                        <!-- Tips will be populated here by JavaScript -->
                     </div>
                 </div>
 

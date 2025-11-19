@@ -62,6 +62,34 @@ def init_database():
         print("   - hostel_mgr (Hostel) - Custom energy limit: 1200 kWh")
         print("   - custom_user (Single) - Very low limits: 50 kWh, 2000 L")
         print("   All passwords: password123")
+        
+        # Add sample energy and water entries for testing reports and charts
+        print("\n📊 Adding sample consumption data...")
+        from modules import EnergyEntry, WaterEntry
+        
+        today = datetime.now()
+        user1 = User.query.filter_by(username="john_doe").first()
+        
+        # Add last 10 days of data for john_doe
+        for i in range(10, 0, -1):
+            reading_date = today - timedelta(days=i)
+            energy = EnergyEntry(
+                user_id=user1.id,
+                electricity_usage=15 + (i % 5),
+                cost=1200 + (i * 50),
+                reading_date=reading_date
+            )
+            water = WaterEntry(
+                user_id=user1.id,
+                water_usage=800 + (i * 20),
+                cost=2000 + (i * 30),
+                reading_date=reading_date
+            )
+            db.session.add(energy)
+            db.session.add(water)
+        
+        db.session.commit()
+        print("✅ Sample entries created for reports and charts!")
 
 if __name__ == "__main__":
     init_database()

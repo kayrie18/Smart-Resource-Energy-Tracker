@@ -9,6 +9,12 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('energyDate').value = today;
     document.getElementById('waterDate').value = today;
     
+    // Set default report dates (last 30 days)
+    const endDate = new Date();
+    const startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+    document.getElementById('reportStart').value = startDate.toISOString().split('T')[0];
+    document.getElementById('reportEnd').value = today;
+    
     // Load user categories
     loadUserCategories();
     
@@ -350,16 +356,112 @@ async function loadCharts() {
         const response = await fetch(`${API_BASE}/analytics/${currentUser.user_id}`);
         const data = await response.json();
 
-        if (response.ok && data.chart_data) {
-            renderEnergyUsageChart(data.chart_data.energy_usage);
-            renderCostTrendChart(data.chart_data.cost_trend);
-            renderMonthlyBreakdown(data.chart_data.monthly_breakdown);
+        if (response.ok) {
+            // Render new comprehensive usage trends graph
+            renderUsageTrendsGraph(data);
+            
+            // Build chart data from series
+            const energyData = data.series
+                .filter(e => e.type === 'energy')
+                .map(e => ({ date: e.date, usage: e.usage }))
+                .slice(-7);
+            
+            const costData = data.series
+                .filter(e => e.type === 'energy')
+                .map(e => ({ date: e.date, cost: e.cost }))
+                .slice(-7);
+            
+            // Render traditional charts
+            renderEnergyUsageChart(energyData);
+            renderCostTrendChart(costData);
+            
+            // Render monthly breakdown
+            const breakdown = {
+                energy_usage: data.total_energy,
+                water_usage: data.total_water,
+                total_cost: data.total_cost,
+                energy_limit: data.energy_limit,
+                water_limit: data.water_limit,
+                default_energy_limit: data.energy_limit,
+                default_water_limit: data.water_limit
+            };
+            renderMonthlyBreakdown(breakdown);
+            
             renderMonthlyProgress(data.monthly_energy_used, data.energy_limit, data.energy_percentage, 'energy');
             renderMonthlyProgress(data.monthly_water_used, data.water_limit, data.water_percentage, 'water');
         }
     } catch (error) {
         console.error('Error loading charts:', error);
     }
+}
+
+// New function: Render comprehensive usage trends with previous period comparison
+function renderUsageTrendsGraph(analyticsData) {
+    const chartContainer = document.getElementById('usageTrendsChart');
+    if (!chartContainer) return;
+    
+    const series = analyticsData.series || [];
+    const prev = analyticsData.previous_period || {};
+    
+    // Aggregate current period by type
+    let currentEnergy = 0, currentWater = 0;
+    let currentEnergyCost = 0, currentWaterCost = 0;
+    
+    series.forEach(entry => {
+        if (entry.type === 'energy') {
+            currentEnergy += entry.usage;
+            currentEnergyCost += entry.cost;
+        } else {
+            currentWater += entry.usage;
+            currentWaterCost += entry.cost;
+        }
+    });
+    
+    const prevEnergy = prev.total_energy || 0;
+    const prevWater = prev.total_water || 0;
+    
+    // Calculate trends
+    const energyChange = prevEnergy > 0 ? (((currentEnergy - prevEnergy) / prevEnergy) * 100).toFixed(1) : 0;
+    const waterChange = prevWater > 0 ? (((currentWater - prevWater) / prevWater) * 100).toFixed(1) : 0;
+    
+    const energyTrend = energyChange > 0 ? '📈 UP' : '📉 DOWN';
+    const waterTrend = waterChange > 0 ? '📈 UP' : '📉 DOWN';
+    
+    chartContainer.innerHTML = `
+        <h4>Usage Trends & Comparison</h4>
+        <div class="trends-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:15px;">
+            <div class="trend-card" style="padding:15px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9;">
+                <h5>⚡ Energy Usage</h5>
+                <div style="font-size:1.5rem; font-weight:bold; color:#3498db;">${currentEnergy.toFixed(2)} kWh</div>
+                <div style="font-size:0.9rem; color:#666; margin-top:5px;">
+                    vs Previous: ${prevEnergy.toFixed(2)} kWh
+                </div>
+                <div style="font-size:1rem; margin-top:8px; color:${energyChange > 0 ? '#e74c3c' : '#27ae60'};">
+                    ${energyTrend} ${Math.abs(energyChange)}%
+                </div>
+                <div style="font-size:0.85rem; color:#999; margin-top:5px;">
+                    Cost: MWK ${currentEnergyCost.toFixed(2)}
+                </div>
+            </div>
+            <div class="trend-card" style="padding:15px; border:1px solid #ddd; border-radius:8px; background:#f9f9f9;">
+                <h5>💧 Water Usage</h5>
+                <div style="font-size:1.5rem; font-weight:bold; color:#2ecc71;">${currentWater.toFixed(2)} L</div>
+                <div style="font-size:0.9rem; color:#666; margin-top:5px;">
+                    vs Previous: ${prevWater.toFixed(2)} L
+                </div>
+                <div style="font-size:1rem; margin-top:8px; color:${waterChange > 0 ? '#e74c3c' : '#27ae60'};">
+                    ${waterTrend} ${Math.abs(waterChange)}%
+                </div>
+                <div style="font-size:0.85rem; color:#999; margin-top:5px;">
+                    Cost: MWK ${currentWaterCost.toFixed(2)}
+                </div>
+            </div>
+        </div>
+        <div style="margin-top:15px; padding:10px; background:#ecf0f1; border-radius:5px; font-size:0.9rem; color:#555;">
+            📅 Period: ${analyticsData.start_date} to ${analyticsData.end_date}
+            | Last Update: ${analyticsData.last_update ? new Date(analyticsData.last_update).toLocaleString() : 'N/A'}
+        </div>
+    `;
 }
 
 function renderEnergyUsageChart(energyData) {
@@ -505,7 +607,14 @@ function downloadReport() {
         return;
     }
 
+    // Validate date range
+    if (new Date(start) > new Date(end)) {
+        alert('Start date must be before end date.');
+        return;
+    }
+
     const url = `${API_BASE}/report/${currentUser.user_id}?start_date=${start}&end_date=${end}&format=csv`;
+    console.log('Downloading report from:', url);
     // Use browser to download
     window.open(url, '_blank');
 }
@@ -520,31 +629,41 @@ async function loadNotifications() {
 
         if (notifications.length === 0) {
             notificationsList.innerHTML = '<div class="notification-item info"><p>No new notifications - Keep up the good work!</p></div>';
-            return;
+        } else {
+            notifications.forEach(notification => {
+                const notificationElement = document.createElement('div');
+                notificationElement.className = `notification-item ${notification.type}`;
+                const smsBadge = notification.sms_sent ? ' 📱' : '';
+                notificationElement.innerHTML = `
+                    <p>${notification.message}${smsBadge}</p>
+                    <small>${new Date(notification.created_at).toLocaleDateString()}</small>
+                    <button onclick="markNotificationRead(${notification.id})" style="float: right; padding: 5px 10px; font-size: 12px;">Dismiss</button>
+                `;
+                notificationsList.appendChild(notificationElement);
+            });
         }
 
-        notifications.forEach(notification => {
-            const notificationElement = document.createElement('div');
-            notificationElement.className = `notification-item ${notification.type}`;
-            const smsBadge = notification.sms_sent ? ' 📱' : '';
-            notificationElement.innerHTML = `
-                <p>${notification.message}${smsBadge}</p>
-                <small>${new Date(notification.created_at).toLocaleDateString()}</small>
-                <button onclick="markNotificationRead(${notification.id})" style="float: right; padding: 5px 10px; font-size: 12px;">Dismiss</button>
-            `;
-            notificationsList.appendChild(notificationElement);
-        });
-
-        // Add conservation tips
+        // Load and display conservation tips in dedicated section
         const analyticsResponse = await fetch(`${API_BASE}/analytics/${currentUser.user_id}`);
         const analyticsData = await analyticsResponse.json();
         
-        if (analyticsData.conservation_tips) {
+        const tipsList = document.getElementById('tipsList');
+        if (tipsList && analyticsData.conservation_tips) {
+            tipsList.innerHTML = '';
             analyticsData.conservation_tips.forEach(tip => {
                 const tipElement = document.createElement('div');
-                tipElement.className = 'notification-item tip';
-                tipElement.innerHTML = `<p>${tip}</p>`;
-                notificationsList.appendChild(tipElement);
+                tipElement.style.cssText = 'padding:15px; background:white; border-radius:8px; border-left:4px solid #27ae60;';
+                if (typeof tip === 'string') {
+                    // Legacy string format
+                    tipElement.innerHTML = `<p style="margin:0;">${tip}</p>`;
+                } else if (typeof tip === 'object' && tip.title) {
+                    // New structured format with title and detail
+                    tipElement.innerHTML = `
+                        <div style="font-weight:bold; color:#2c3e50; margin-bottom:8px;">${tip.title}</div>
+                        <div style="font-size:0.95rem; color:#555; line-height:1.5;">${tip.detail}</div>
+                    `;
+                }
+                tipsList.appendChild(tipElement);
             });
         }
     } catch (error) {
