@@ -158,7 +158,7 @@ def check_high_consumption(user, usage, resource_type='energy'):
         unit = "liters"
     
     if monthly_usage > limit:
-        message = f"ALERT {user.username}: Monthly {resource_name} usage ({monthly_usage}{unit}) exceeded your limit ({limit}{unit})."
+        message = f"ALERT {user.username}: Monthly {resource_name} usage ({monthly_usage} {unit}) exceeded your limit ({limit} {unit})."
         
         # Create notification
         notification = Notification(
@@ -319,9 +319,29 @@ def add_energy_entry():
     try:
         data = request.get_json()
         
+        # Validate input
+        if not data.get('electricity_usage') or not data.get('reading_date') or not data.get('user_id'):
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        try:
+            electricity_usage = float(data['electricity_usage'])
+            if electricity_usage <= 0:
+                return jsonify({'error': 'Electricity usage must be greater than 0'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Electricity usage must be a valid number'}), 400
+        
         user = User.query.get(data['user_id'])
         if not user:
             return jsonify({'error': 'User not found'}), 404
+        
+        # Validate date
+        try:
+            reading_date = datetime.fromisoformat(data['reading_date'])
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        
+        if reading_date > datetime.now():
+            return jsonify({'error': 'Reading date cannot be in the future'}), 400
             
         monthly_usage_so_far = get_monthly_usage(data['user_id'], 'energy')
         
@@ -359,9 +379,29 @@ def add_water_entry():
     try:
         data = request.get_json()
         
+        # Validate input
+        if not data.get('water_usage') or not data.get('reading_date') or not data.get('user_id'):
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        try:
+            water_usage = float(data['water_usage'])
+            if water_usage <= 0:
+                return jsonify({'error': 'Water usage must be greater than 0'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Water usage must be a valid number'}), 400
+        
         user = User.query.get(data['user_id'])
         if not user:
             return jsonify({'error': 'User not found'}), 404
+        
+        # Validate date
+        try:
+            reading_date = datetime.fromisoformat(data['reading_date'])
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        
+        if reading_date > datetime.now():
+            return jsonify({'error': 'Reading date cannot be in the future'}), 400
         
         # Calculate cost automatically
         calculated_cost = calculate_water_cost(user.user_category, data['water_usage'])
@@ -370,7 +410,7 @@ def add_water_entry():
             user_id=data['user_id'],
             water_usage=data['water_usage'],
             cost=calculated_cost,
-            reading_date=datetime.fromisoformat(data['reading_date'])
+            reading_date=reading_date
         )
         
         db.session.add(entry)
@@ -392,6 +432,18 @@ def add_water_entry():
 def preview_energy():
     try:
         data = request.get_json()
+        
+        # Validate input
+        if not data.get('electricity_usage') or not data.get('user_id'):
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        try:
+            electricity_usage = float(data['electricity_usage'])
+            if electricity_usage <= 0:
+                return jsonify({'error': 'Electricity usage must be greater than 0'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Electricity usage must be a valid number'}), 400
+        
         user = User.query.get(data['user_id'])
         if not user:
             return jsonify({'error': 'User not found'}), 404
@@ -399,13 +451,13 @@ def preview_energy():
         monthly_usage_so_far = get_monthly_usage(data['user_id'], 'energy')
         calculated_cost = calculate_electricity_cost(
             user.user_category,
-            data['electricity_usage'],
+            electricity_usage,
             monthly_usage_so_far
         )
 
         energy_limit, _ = get_user_limits(user)
 
-        projected_monthly_total = monthly_usage_so_far + data['electricity_usage']
+        projected_monthly_total = monthly_usage_so_far + electricity_usage
         warning = None
         if projected_monthly_total > energy_limit:
             warning = f"Projected monthly energy usage ({projected_monthly_total} kWh) exceeds your limit ({energy_limit} kWh)."
@@ -425,15 +477,27 @@ def preview_energy():
 def preview_water():
     try:
         data = request.get_json()
+        
+        # Validate input
+        if not data.get('water_usage') or not data.get('user_id'):
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        try:
+            water_usage = float(data['water_usage'])
+            if water_usage <= 0:
+                return jsonify({'error': 'Water usage must be greater than 0'}), 400
+        except (ValueError, TypeError):
+            return jsonify({'error': 'Water usage must be a valid number'}), 400
+        
         user = User.query.get(data['user_id'])
         if not user:
             return jsonify({'error': 'User not found'}), 404
 
         monthly_usage_so_far = get_monthly_usage(data['user_id'], 'water')
-        calculated_cost = calculate_water_cost(user.user_category, data['water_usage'])
+        calculated_cost = calculate_water_cost(user.user_category, water_usage)
 
         _, water_limit = get_user_limits(user)
-        projected_monthly_total = monthly_usage_so_far + data['water_usage']
+        projected_monthly_total = monthly_usage_so_far + water_usage
         warning = None
         if projected_monthly_total > water_limit:
             warning = f"Projected monthly water usage ({projected_monthly_total} L) exceeds your limit ({water_limit} L)."

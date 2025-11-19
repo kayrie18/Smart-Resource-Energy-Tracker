@@ -220,6 +220,16 @@ document.getElementById('energyForm').addEventListener('submit', async function(
     const electricityUsage = parseFloat(document.getElementById('electricityUsage').value);
     const readingDate = document.getElementById('energyDate').value;
 
+    // Validate input
+    if (isNaN(electricityUsage) || electricityUsage <= 0) {
+        alert('Please enter a valid electricity usage greater than 0');
+        return;
+    }
+    if (!readingDate) {
+        alert('Please select a reading date');
+        return;
+    }
+
     try {
         // Preview cost first
         const previewResp = await fetch(`${API_BASE}/preview/energy`, {
@@ -265,6 +275,16 @@ document.getElementById('waterForm').addEventListener('submit', async function(e
     
     const waterUsage = parseFloat(document.getElementById('waterUsage').value);
     const readingDate = document.getElementById('waterDate').value;
+
+    // Validate input
+    if (isNaN(waterUsage) || waterUsage <= 0) {
+        alert('Please enter a valid water usage greater than 0');
+        return;
+    }
+    if (!readingDate) {
+        alert('Please select a reading date');
+        return;
+    }
 
     try {
         // Preview water cost first
