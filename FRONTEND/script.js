@@ -715,11 +715,34 @@ function closeProfileModal() {
 document.getElementById('profileForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
+    // Validate inputs
     const phoneNumber = document.getElementById('profilePhone').value;
     const userCategory = document.getElementById('profileCategory').value;
     const familyMembers = document.getElementById('profileFamilyMembers').value;
     const customEnergyLimit = document.getElementById('profileCustomEnergyLimit').value;
     const customWaterLimit = document.getElementById('profileCustomWaterLimit').value;
+    
+    // Client-side validation
+    if (!userCategory) {
+        alert('Please select a user category');
+        return;
+    }
+    
+    const fam = parseInt(familyMembers);
+    if (isNaN(fam) || fam < 1) {
+        alert('Family members must be at least 1');
+        return;
+    }
+    
+    if (customEnergyLimit && isNaN(parseFloat(customEnergyLimit))) {
+        alert('Energy limit must be a valid number');
+        return;
+    }
+    
+    if (customWaterLimit && isNaN(parseFloat(customWaterLimit))) {
+        alert('Water limit must be a valid number');
+        return;
+    }
 
     try {
         const response = await fetch(`${API_BASE}/user/${currentUser.user_id}/profile`, {
@@ -730,7 +753,7 @@ document.getElementById('profileForm').addEventListener('submit', async function
             body: JSON.stringify({
                 phone_number: phoneNumber,
                 user_category: userCategory,
-                family_members: parseInt(familyMembers) || 1,
+                family_members: fam,
                 custom_energy_limit: customEnergyLimit ? parseFloat(customEnergyLimit) : 0,
                 custom_water_limit: customWaterLimit ? parseFloat(customWaterLimit) : 0
             })
@@ -743,10 +766,11 @@ document.getElementById('profileForm').addEventListener('submit', async function
             closeProfileModal();
             loadDashboardData();
         } else {
-            alert(data.error || 'Failed to update profile');
+            alert(`Error: ${data.error || 'Failed to update profile'}`);
         }
     } catch (error) {
-        alert('Error updating profile');
+        console.error('Profile update error:', error);
+        alert(`Error updating profile: ${error.message}`);
     }
 });
 

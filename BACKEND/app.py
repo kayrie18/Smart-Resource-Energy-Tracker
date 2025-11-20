@@ -697,20 +697,51 @@ def get_user_categories():
 # Updated Profile Update Endpoint
 @app.route('/api/user/<int:user_id>/profile', methods=['PUT'])
 def update_user_profile(user_id):
-    data = request.get_json()
-    user = User.query.get(user_id)
-    
-    if user:
-        if 'user_category' in data:
-            user.user_category = data['user_category']
-        if 'family_members' in data:
-            user.family_members = data['family_members']
-        if 'phone_number' in data:
-            user.phone_number = data['phone_number']
-        if 'custom_energy_limit' in data:
-            user.custom_energy_limit = float(data['custom_energy_limit'])
-        if 'custom_water_limit' in data:
-            user.custom_water_limit = float(data['custom_water_limit'])
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Validate and update fields
+        try:
+            if 'user_category' in data:
+                if data['user_category'] not in ['Single', 'Family', 'Hostel', 'Company']:
+                    return jsonify({'error': 'Invalid category'}), 400
+                user.user_category = data['user_category']
+            
+            if 'family_members' in data:
+                fam_members = int(data['family_members'])
+                if fam_members < 1:
+                    return jsonify({'error': 'Family members must be at least 1'}), 400
+                user.family_members = fam_members
+            
+            if 'phone_number' in data:
+                user.phone_number = data['phone_number']
+            
+            if 'custom_energy_limit' in data:
+                if data['custom_energy_limit']:
+                    limit = float(data['custom_energy_limit'])
+                    if limit < 0:
+                        return jsonify({'error': 'Custom energy limit cannot be negative'}), 400
+                    user.custom_energy_limit = limit
+                else:
+                    user.custom_energy_limit = 0
+            
+            if 'custom_water_limit' in data:
+                if data['custom_water_limit']:
+                    limit = float(data['custom_water_limit'])
+                    if limit < 0:
+                        return jsonify({'error': 'Custom water limit cannot be negative'}), 400
+                    user.custom_water_limit = limit
+                else:
+                    user.custom_water_limit = 0
+        
+        except (ValueError, TypeError) as ve:
+            return jsonify({'error': f'Invalid data format: {str(ve)}'}), 400
         
         db.session.commit()
         
@@ -723,9 +754,11 @@ def update_user_profile(user_id):
             'water_limit': water_limit,
             'has_custom_energy_limit': user.custom_energy_limit > 0,
             'has_custom_water_limit': user.custom_water_limit > 0
-        })
+        }), 200
     
-    return jsonify({'error': 'User not found'}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 # New Endpoint: Get default limits for a category
 @app.route('/api/category-defaults/<category>', methods=['GET'])
