@@ -352,6 +352,19 @@ def add_energy_entry():
             monthly_usage_so_far
         )
         
+        # Check if adding this entry would exceed monthly limit
+        new_monthly_total = monthly_usage_so_far + data['electricity_usage']
+        energy_limit, _ = get_user_limits(user)
+        
+        if new_monthly_total > energy_limit:
+            return jsonify({
+                'error': f'Adding this entry would exceed your monthly energy limit. You have {energy_limit - monthly_usage_so_far} kWh remaining.',
+                'monthly_limit': energy_limit,
+                'current_monthly_usage': monthly_usage_so_far,
+                'requested_usage': data['electricity_usage'],
+                'would_total': new_monthly_total
+            }), 400
+        
         entry = EnergyEntry(
             user_id=data['user_id'],
             electricity_usage=data['electricity_usage'],
@@ -405,6 +418,20 @@ def add_water_entry():
         
         # Calculate cost automatically
         calculated_cost = calculate_water_cost(user.user_category, data['water_usage'])
+        
+        # Check if adding this entry would exceed monthly limit
+        monthly_water_so_far = get_monthly_usage(data['user_id'], 'water')
+        new_monthly_total = monthly_water_so_far + data['water_usage']
+        _, water_limit = get_user_limits(user)
+        
+        if new_monthly_total > water_limit:
+            return jsonify({
+                'error': f'Adding this entry would exceed your monthly water limit. You have {water_limit - monthly_water_so_far} L remaining.',
+                'monthly_limit': water_limit,
+                'current_monthly_usage': monthly_water_so_far,
+                'requested_usage': data['water_usage'],
+                'would_total': new_monthly_total
+            }), 400
         
         entry = WaterEntry(
             user_id=data['user_id'],
@@ -508,6 +535,187 @@ def preview_water():
             'projected_monthly_total': projected_monthly_total,
             'water_limit': water_limit,
             'warning': warning
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Dashboard Endpoint - Returns weekly summary for dashboard display
+@app.route('/api/dashboard/<int:user_id>', methods=['GET'])
+def get_dashboard(user_id):
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Get data for the current week (or last 7 days)
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=7)
+        
+        # Get energy and water entries for the week
+        energy_entries = EnergyEntry.query.filter(
+            EnergyEntry.user_id == user_id,
+            EnergyEntry.reading_date >= start_date,
+            EnergyEntry.reading_date <= end_date
+        ).order_by(EnergyEntry.reading_date).all()
+        
+        water_entries = WaterEntry.query.filter(
+            WaterEntry.user_id == user_id,
+            WaterEntry.reading_date >= start_date,
+            WaterEntry.reading_date <= end_date
+        ).order_by(WaterEntry.reading_date).all()
+        
+        # Calculate weekly totals
+        total_energy = sum(e.electricity_usage for e in energy_entries)
+        total_water = sum(w.water_usage for w in water_entries)
+        total_cost = sum(e.cost for e in energy_entries) + sum(w.cost for w in water_entries)
+        
+        # Get user limits
+        energy_limit, water_limit = get_user_limits(user)
+        
+        # Calculate monthly usage for full picture
+        monthly_energy = get_monthly_usage(user_id, 'energy')
+        monthly_water = get_monthly_usage(user_id, 'water')
+        
+        # Calculate percentages
+        energy_percentage = (monthly_energy / energy_limit * 100) if energy_limit > 0 else 0
+        water_percentage = (monthly_water / water_limit * 100) if water_limit > 0 else 0
+        
+        return jsonify({
+            'user_id': user_id,
+            'username': user.username,
+            'user_category': user.user_category,
+            'family_members': user.family_members,
+            'total_cost': total_cost,
+            'weekly_energy_used': total_energy,
+            'weekly_water_used': total_water,
+            'monthly_energy_used': monthly_energy,
+            'monthly_water_used': monthly_water,
+            'energy_limit': energy_limit,
+            'water_limit': water_limit,
+            'energy_percentage': energy_percentage,
+            'water_percentage': water_percentage,
+            'has_custom_energy_limit': user.custom_energy_limit > 0,
+            'has_custom_water_limit': user.custom_water_limit > 0,
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'end_date': end_date.strftime('%Y-%m-%d')
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Chart Data Endpoint - Returns data formatted for line charts showing week-by-week limits and consumption
+@app.route('/api/chart-data/<int:user_id>', methods=['GET'])
+def get_chart_data(user_id):
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Get last 7 days of data
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=7)
+        
+        energy_entries = EnergyEntry.query.filter(
+            EnergyEntry.user_id == user_id,
+            EnergyEntry.reading_date >= start_date,
+            EnergyEntry.reading_date <= end_date
+        ).order_by(EnergyEntry.reading_date).all()
+        
+        water_entries = WaterEntry.query.filter(
+            WaterEntry.user_id == user_id,
+            WaterEntry.reading_date >= start_date,
+            WaterEntry.reading_date <= end_date
+        ).order_by(WaterEntry.reading_date).all()
+        
+        # Get user limits (monthly)
+        monthly_energy_limit, monthly_water_limit = get_user_limits(user)
+        # Convert to weekly limits (1/4 of monthly for 7-day week)
+        weekly_energy_limit = monthly_energy_limit / 4
+        weekly_water_limit = monthly_water_limit / 4
+        
+        # Build cumulative data arrays for the 7 days
+        dates = []
+        energy_data = []
+        water_data = []
+        cumulative_energy = 0
+        cumulative_water = 0
+        
+        # Create 7-day timeline
+        for i in range(7):
+            current_day = start_date + timedelta(days=i)
+            date_str = current_day.strftime('%m-%d')
+            dates.append(date_str)
+            
+            # Get data for this day
+            day_energy = sum(e.electricity_usage for e in energy_entries if e.reading_date.date() == current_day.date())
+            day_water = sum(w.water_usage for w in water_entries if w.reading_date.date() == current_day.date())
+            
+            cumulative_energy += day_energy
+            cumulative_water += day_water
+            
+            energy_data.append(round(cumulative_energy, 2))
+            water_data.append(round(cumulative_water, 2))
+        
+        # Calculate when resources will end (project based on daily average)
+        avg_daily_energy = cumulative_energy / 7 if cumulative_energy > 0 else 0
+        avg_daily_water = cumulative_water / 7 if cumulative_water > 0 else 0
+        
+        # Days used in the 7-day week (how many days have passed since start_date)
+        days_elapsed = (end_date.date() - start_date.date()).days
+        days_remaining_in_week = 7 - days_elapsed
+        
+        # Calculate days until limit exceeded
+        energy_days_until_limit = (weekly_energy_limit - cumulative_energy) / avg_daily_energy if avg_daily_energy > 0 else float('inf')
+        water_days_until_limit = (weekly_water_limit - cumulative_water) / avg_daily_water if avg_daily_water > 0 else float('inf')
+        
+        # Calculate end dates based on the weekly limit
+        energy_limit_date = (end_date + timedelta(days=energy_days_until_limit)).strftime('%Y-%m-%d') if energy_days_until_limit != float('inf') else 'Not expected'
+        water_limit_date = (end_date + timedelta(days=water_days_until_limit)).strftime('%Y-%m-%d') if water_days_until_limit != float('inf') else 'Not expected'
+        
+        # Weekly summary
+        weekly_summary = [{
+            'start_date': start_date.strftime('%Y-%m-%d'),
+            'end_date': end_date.strftime('%Y-%m-%d'),
+            'energy_total': cumulative_energy,
+            'water_total': cumulative_water,
+            'energy_status': 'OVER' if cumulative_energy > weekly_energy_limit else 'UNDER',
+            'water_status': 'OVER' if cumulative_water > weekly_water_limit else 'UNDER',
+            'days_elapsed': days_elapsed,
+            'days_remaining': days_remaining_in_week
+        }]
+        
+        return jsonify({
+            'dates': dates,
+            'energy_data': energy_data,
+            'water_data': water_data,
+            'energy_limit': weekly_energy_limit,
+            'water_limit': weekly_water_limit,
+            'monthly_energy_limit': monthly_energy_limit,
+            'monthly_water_limit': monthly_water_limit,
+            'energy_end_date': energy_limit_date,
+            'water_end_date': water_limit_date,
+            'days_remaining_energy': round(energy_days_until_limit, 1) if energy_days_until_limit != float('inf') else 'Unlimited',
+            'days_remaining_water': round(water_days_until_limit, 1) if water_days_until_limit != float('inf') else 'Unlimited',
+            'days_elapsed': days_elapsed,
+            'days_remaining_in_week': days_remaining_in_week,
+            'weekly_summary': weekly_summary,
+            'resource_exhaustion': {
+                'energy': {
+                    'projected_end_date': energy_limit_date,
+                    'days_remaining': round(energy_days_until_limit, 1) if energy_days_until_limit != float('inf') else 'Unlimited',
+                    'current_usage': cumulative_energy,
+                    'weekly_limit': weekly_energy_limit,
+                    'monthly_limit': monthly_energy_limit,
+                    'status': 'EXCEEDED' if cumulative_energy > weekly_energy_limit else ('WARNING' if cumulative_energy > weekly_energy_limit * 0.8 else 'GOOD')
+                },
+                'water': {
+                    'projected_end_date': water_limit_date,
+                    'days_remaining': round(water_days_until_limit, 1) if water_days_until_limit != float('inf') else 'Unlimited',
+                    'current_usage': cumulative_water,
+                    'weekly_limit': weekly_water_limit,
+                    'monthly_limit': monthly_water_limit,
+                    'status': 'EXCEEDED' if cumulative_water > weekly_water_limit else ('WARNING' if cumulative_water > weekly_water_limit * 0.8 else 'GOOD')
+                }
+            }
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -709,9 +917,10 @@ def update_user_profile(user_id):
         # Validate and update fields
         try:
             if 'user_category' in data:
-                if data['user_category'] not in ['Single', 'Family', 'Hostel', 'Company']:
+                valid_categories = ['single', 'family', 'hostel', 'company']
+                if data['user_category'].lower() not in valid_categories:
                     return jsonify({'error': 'Invalid category'}), 400
-                user.user_category = data['user_category']
+                user.user_category = data['user_category'].lower()
             
             if 'family_members' in data:
                 fam_members = int(data['family_members'])
@@ -727,6 +936,10 @@ def update_user_profile(user_id):
                     limit = float(data['custom_energy_limit'])
                     if limit < 0:
                         return jsonify({'error': 'Custom energy limit cannot be negative'}), 400
+                    tariff = ELECTRICITY_TARIFFS.get(user.user_category, ELECTRICITY_TARIFFS['single'])
+                    default_limit = tariff['default_energy_limit']
+                    if limit > default_limit:
+                        return jsonify({'error': f'Custom energy limit cannot exceed default limit of {default_limit} kWh'}), 400
                     user.custom_energy_limit = limit
                 else:
                     user.custom_energy_limit = 0
@@ -736,6 +949,10 @@ def update_user_profile(user_id):
                     limit = float(data['custom_water_limit'])
                     if limit < 0:
                         return jsonify({'error': 'Custom water limit cannot be negative'}), 400
+                    tariff = ELECTRICITY_TARIFFS.get(user.user_category, ELECTRICITY_TARIFFS['single'])
+                    default_limit = tariff['default_water_limit']
+                    if limit > default_limit:
+                        return jsonify({'error': f'Custom water limit cannot exceed default limit of {default_limit} liters'}), 400
                     user.custom_water_limit = limit
                 else:
                     user.custom_water_limit = 0

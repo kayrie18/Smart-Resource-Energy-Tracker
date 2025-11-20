@@ -1,0 +1,251 @@
+"""
+VISUAL REFERENCE GUIDE
+Shows what changed and how to identify the fixes
+"""
+
+VISUAL_GUIDE = """
+═══════════════════════════════════════════════════════════════════════════════
+                    🎯 VISUAL FIX REFERENCE GUIDE
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FIX #1: MISSING END DATE DISPLAY                                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ BEFORE: Report ├─ Start: 2024-01-01  [no end date visible]                │
+│              └─ Downloads anyway (unclear what dates included)             │
+│                                                                              │
+│ AFTER:  Report ├─ 📅 Period: 2024-01-01 to 2024-01-31 (31 days) ✓         │
+│              ├─ Download confirms: "Exporting 2024-01-01 to 2024-01-31"  │
+│              └─ Users know EXACTLY what they're getting                    │
+│                                                                              │
+│ Location: FRONTEND/script_enhanced.js                                       │
+│ Function: updateDateRangeDisplay()                                          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FIX #2: MISSING UNITS (L/week, kWh/week)                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ BEFORE: Dashboard ├─ Energy Usage: 450                                      │
+│                  ├─ Water Usage: 900                                        │
+│                  └─ [What units? Monthly? Weekly? Daily?]                   │
+│                                                                              │
+│ AFTER:  Dashboard ├─ Energy Usage: 450 kWh/week ✓                          │
+│                  ├─ Water Usage: 900 L/week ✓                              │
+│                  └─ Crystal clear units everywhere                          │
+│                                                                              │
+│ Reports         ├─ Limit: 500 kWh/week [not just "500"]                    │
+│                 ├─ Used: 450 kWh/week [not just "450"]                     │
+│                 └─ No ambiguity possible                                    │
+│                                                                              │
+│ Location: enhanced_tracker.py, FRONTEND/script_enhanced.js                 │
+│ Key: Every value includes unit suffix (L/week or kWh/week)                │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FIX #3: CHART IS JUST A BAR - NO X/Y AXES                                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ BEFORE:                                                                     │
+│         |||||                                                               │
+│         ||||   [Just bars, no axes, no labels]                              │
+│         |||                                                                 │
+│                                                                              │
+│ AFTER:  (Professional Time-Series)                                          │
+│                                                                              │
+│         ⚡ 550 │     ╱╲                                                     │
+│             │    ╱  ╲  ─ ─ ─ (limit = 500)                                │
+│         500 │   ╱    ╲                                                     │
+│             │  ╱      ╲                                                    │
+│         400 │ ╱        ╲                                                   │
+│             │                                                              │
+│         └────────────────────── Dates                                      │
+│          2024-01-01  08  15                                                │
+│                                                                              │
+│         X-Axis: Full dates (YYYY-MM-DD) ✓                                  │
+│         Y-Axis: Consumption values ✓                                        │
+│         Dates: Rotated 45° for readability ✓                               │
+│         Limits: Reference line shown ✓                                      │
+│         Legend: Explains all lines ✓                                        │
+│                                                                              │
+│ Location: enhanced_charts.py                                                │
+│ Classes: EnhancedCharts with matplotlib                                     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FIX #4: NO READABLE X-AXIS DATE LABELS                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ BEFORE:  ██  (Dates abbreviated "01", "08" hard to read)                   │
+│          ██                                                                 │
+│          01 08 15  [What year? What month?]                                 │
+│                                                                              │
+│ AFTER:   ██  (Full dates, properly rotated)                                │
+│          ██  ╱                                                              │
+│          ██ ╱                                                               │
+│          2024-01-01 ↘                                                      │
+│          2024-01-08 ↘  [Clear and unambiguous]                             │
+│          2024-01-15 ↘                                                      │
+│                                                                              │
+│ Format: YYYY-MM-DD (ISO standard)                                           │
+│ Rotation: 45 degrees for readability                                        │
+│ Alignment: Right-aligned under bars                                         │
+│                                                                              │
+│ Location: enhanced_charts.py                                                │
+│ Code: ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))      │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FIX #5: WEEKLY vs MONTHLY TRACKING CONFUSION                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ BEFORE: Config says "weekly" but UI says "monthly"                          │
+│         limit = 500  [But is it weekly? Monthly?]                           │
+│         "Monthly energy used: 450"  [Contradicts weekly config]             │
+│                                                                              │
+│ AFTER:  Everything explicitly says "week" or "weekly"                       │
+│         Water Limit: 1000 L/week [no ambiguity]                            │
+│         Electricity Limit: 500 kWh/week [no ambiguity]                     │
+│         Display: "450 kWh/week" [always week, never month]                 │
+│                                                                              │
+│ Location: config/settings.py (already correct)                              │
+│           enhanced_tracker.py (all methods use week units)                   │
+│           FRONTEND/script_enhanced.js (displays L/week, kWh/week)           │
+│                                                                              │
+│ Rule: If it says "limit", it's L/week or kWh/week                          │
+│       If it says "usage", it's L/week or kWh/week                          │
+│       NEVER monthly, ALWAYS weekly                                          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FIX #6: NO CLEAR WEEK BOUNDARIES (Start to End Date)                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ BEFORE: Week 2                                                              │
+│         [Which dates? Where's the start? Where's the end?]                  │
+│                                                                              │
+│ AFTER:  Week 2024-W02: 2024-01-08 to 2024-01-14                           │
+│         ├─ Year: 2024 ✓                                                    │
+│         ├─ Week: 02 (February? No, 2nd week of year) ✓                    │
+│         ├─ Start: 2024-01-08 (Monday) ✓                                   │
+│         ├─ End: 2024-01-14 (Sunday) ✓                                     │
+│         └─ Complete context available                                       │
+│                                                                              │
+│ Display in Report:                                                          │
+│         Week 2024-W02 (2024-01-08 to 2024-01-14):                          │
+│           💧 1100 L/week [OVER by 100 L]                                   │
+│           ⚡ 550 kWh/week [OVER by 50 kWh]                                 │
+│                                                                              │
+│ Location: enhanced_tracker.py                                                │
+│ Function: get_week_info(date_str)                                           │
+│ Returns: {                                                                  │
+│     'week_key': '2024-W02',                                                │
+│     'week_start': '2024-01-08',                                            │
+│     'week_end': '2024-01-14'                                               │
+│ }                                                                            │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FIX #7: REPORT DATE RANGE NOT VISIBLE                                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ BEFORE: ENERGY_REPORT.CSV                                                  │
+│         Date,Usage,Cost                                                    │
+│         2024-01-01,25,1250                                                 │
+│         2024-01-02,30,1500                                                 │
+│         [What date range is this? How many days?]                           │
+│                                                                              │
+│ AFTER:  ENERGY_REPORT_2024-01-01_to_2024-01-31.CSV                        │
+│         Report Generated: 2024-01-31 10:30:00                              │
+│         Period: 2024-01-01 to 2024-01-31 (31 days)                         │
+│         ─────────────────────────────────────────                           │
+│         Week,Start Date,End Date,Usage,Limit,Status                        │
+│         W01,2024-01-01,2024-01-07,800 L/week,1000,UNDER ✓                 │
+│         W02,2024-01-08,2024-01-14,1100 L/week,1000,OVER ✗                 │
+│         W03,2024-01-15,2024-01-21,900 L/week,1000,UNDER ✓                 │
+│         [Everything crystal clear]                                          │
+│                                                                              │
+│ Location: enhanced_tracker.py                                                │
+│ Method: export_detailed_report(start_date, end_date)                       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ FIX #8: Y-AXIS SCALING ISSUES                                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ BEFORE: (Arbitrary scaling)                                                │
+│         200 │ ████                                                         │
+│         150 │ ████ ▓▓▓▓  ─ ─ ─ (limit = 100, not visible!)               │
+│         100 │ ████ ▓▓▓▓                                                    │
+│          50 │ ████ ▓▓▓▓                                                    │
+│           0 └─────────────────────                                        │
+│             [Can't see limit line, scaling doesn't account for it]         │
+│                                                                              │
+│ AFTER:  (Proper scaling with limit awareness)                              │
+│         600 │                                                              │
+│         550 │     ╱╲                                                       │
+│         500 │    ╱  ╲─ ─ ─ (Limit: 500 - VISIBLE!) ✓                     │
+│         450 │   ╱    ╲                                                     │
+│         400 │  ╱      ╲                                                    │
+│         350 │ ╱                                                             │
+│           0 └─────────────────────                                        │
+│             [Limit is visible, scaling accommodates data range]            │
+│                                                                              │
+│ Location: enhanced_charts.py                                                │
+│ Code: y_min, y_max = min(values), max(values)                              │
+│       y_margin = (y_max - y_min) * 0.1                                     │
+│       ax.set_ylim(max(0, y_min - y_margin),                                │
+│                   max(limit, y_max + y_margin))  # Ensures limit visible   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+                    📊 WEEKLY TRACKING VISUALIZATION
+═══════════════════════════════════════════════════════════════════════════════
+
+With all fixes applied, weekly tracking looks like:
+
+  📅 Week Starting 2024-01-08 (Monday) to 2024-01-14 (Sunday)
+  
+  ⚡ Electricity Chart:
+  
+    600 │                                                    ┌─ Week 2
+    550 │     ╱╲                                             │ Jan 08-14
+    500 │ ─ ─╱  ╲─ ─ ─ (Limit: 500 kWh/week)               │
+    450 │   ╱    ╲                                           │
+    400 │  ╱      ╲                                          │
+        └─────────────── Date                               └─ Status: ❌ OVER
+         2024-01-08  15  22    (by 50 kWh/week)
+  
+  💧 Water Chart:
+  
+   1200 │                                                    ┌─ Week 2
+   1100 │     ╱╲                                             │ Jan 08-14
+   1000 │ ─ ─╱  ╲─ ─ ─ (Limit: 1000 L/week)                │
+    900 │   ╱    ╲                                           │
+    800 │  ╱      ╲                                          │
+        └─────────────── Date                               └─ Status: ❌ OVER
+         2024-01-08  15  22    (by 100 L/week)
+
+  📋 Summary Table:
+  ┌────────────────────────────────────────────────────────────────┐
+  │ Week 2024-W02: 2024-01-08 to 2024-01-14                       │
+  ├────────────────────────────────────────────────────────────────┤
+  │ Resource      │ Used      │ Limit    │ Status       │ Action  │
+  ├────────────────────────────────────────────────────────────────┤
+  │ Water         │ 1100 L/w  │ 1000 L/w │ ❌ OVER +100 │ Reduce  │
+  │ Electricity   │ 550 kWh/w │ 500 kWh/w│ ❌ OVER +50  │ Reduce  │
+  └────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════
+"""
+
+print(VISUAL_GUIDE)

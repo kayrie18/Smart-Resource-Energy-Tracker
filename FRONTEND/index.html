@@ -121,16 +121,31 @@
 
                 <!-- Charts Section -->
                 <div class="chart-container">
-                    <h3>📈 Usage Analytics & Trends</h3>
-                    <div id="usageTrendsChart" class="chart-card" style="margin-bottom:20px;"></div>
+                    <h3>📈 Weekly Resource Consumption & Limits</h3>
+                    
+                    <!-- Resource End Date Alerts -->
+                    <div id="resourceEndDateAlerts" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <!-- Alerts populated by JavaScript -->
+                    </div>
+                    
                     <div class="charts-grid">
                         <div class="chart-card">
-                            <h4>Weekly Energy Usage (kWh)</h4>
-                            <div id="energyUsageChart" class="chart"></div>
+                            <h4>⚡ Energy Consumption vs Limit (7-Day Trend)</h4>
+                            <canvas id="energyChart"></canvas>
+                            <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
+                                <span id="energyDaysInfo">--</span><br>
+                                Projected exhaustion: <strong id="energyEndDate">--</strong> 
+                                (<span id="energyDaysRemaining">--</span> days remaining)
+                            </p>
                         </div>
                         <div class="chart-card">
-                            <h4>Weekly Cost Trend (MWK)</h4>
-                            <div id="costTrendChart" class="chart"></div>
+                            <h4>💧 Water Consumption vs Limit (7-Day Trend)</h4>
+                            <canvas id="waterChart"></canvas>
+                            <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
+                                <span id="waterDaysInfo">--</span><br>
+                                Projected exhaustion: <strong id="waterEndDate">--</strong> 
+                                (<span id="waterDaysRemaining">--</span> days remaining)
+                            </p>
                         </div>
                     </div>
                     <div id="monthlyBreakdown" class="breakdown-card"></div>
@@ -246,6 +261,7 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script_enhanced.js"></script>
 </body>
 </html>
