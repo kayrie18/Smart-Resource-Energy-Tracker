@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, Response
+from flask import Flask, request, jsonify, Response, send_from_directory
 from flask_cors import CORS
 from database import db
 from modules import User, EnergyEntry, WaterEntry, Notification
@@ -13,6 +13,17 @@ app = Flask(__name__)
 app.config.from_object(Config)
 CORS(app)
 db.init_app(app)
+
+# Serve Frontend Files
+@app.route('/')
+def serve_frontend():
+    """Serve the main index.html file"""
+    return send_from_directory('../FRONTEND', 'index.html')
+
+@app.route('/<path:path>')
+def serve_static(path):
+    """Serve static files (CSS, JS, images, etc.)"""
+    return send_from_directory('../FRONTEND', path)
 
 # Malawi Electricity Tariffs (ESCOM Rates)
 ELECTRICITY_TARIFFS = {
@@ -610,9 +621,10 @@ def get_chart_data(user_id):
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
-        # Get last 7 days of data
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=7)
+        # Get last 7 days of data (inclusive of today)
+        now = datetime.now()
+        end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+        start_date = (now - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
         
         energy_entries = EnergyEntry.query.filter(
             EnergyEntry.user_id == user_id,
@@ -1061,8 +1073,8 @@ def health_check():
     })
 
 if __name__ == '__main__':
-    print("🚀 Starting Smart Energy Tracker API v2.1...")
-    print("📍 http://localhost:5000")
-    print("📊 Features: User Categories, Custom Limits, Automatic Cost Calculation, SMS Notifications, Charts")
-    print("🇲🇼 Using Malawi ESCOM Electricity Tariffs")
+    print("Starting Smart Energy Tracker API v2.1...")
+    print("URL: http://localhost:5000")
+    print("Features: User Categories, Custom Limits, Automatic Cost Calculation, SMS Notifications, Charts")
+    print("Using Malawi ESCOM Electricity Tariffs")
     app.run(debug=True, port=5000)

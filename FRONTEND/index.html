@@ -1,267 +1,320 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Energy & Resource Tracker</title>
+    <title>Smart Energy & Water Tracker</title>
     <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Smart Energy & Resource Tracker</h1>
-            <p>Monitor and optimize your resource consumption - Malawi Vision 2063</p>
-        </header>
 
-        <div class="auth-forms">
+<body>
+
+    <div class="container">
+        <!-- LANDING SECTION -->
+        <div id="landingSection" class="landing-page">
+            <div class="landing-header">
+                <h1>Smart Resource Tracker</h1>
+                <p>Monitor your energy and water usage, save costs, and conserve resources.</p>
+            </div>
+
+            <div id="authChoice" class="auth-options">
+                <button class="btn-large btn-primary" onclick="showLogin()">Login</button>
+                <button class="btn-large btn-secondary" onclick="showRegister()">Register</button>
+            </div>
+
             <!-- Login Form -->
-            <div id="login-form" class="form-container">
-                <h2>Login to Your Account</h2>
+            <div id="loginFormContainer" class="auth-container">
+                <h2>Welcome Back</h2>
                 <form id="loginForm">
-                    <input type="text" id="loginUsername" placeholder="Username" required>
-                    <input type="password" id="loginPassword" placeholder="Password" required>
-                    <button type="submit">Login</button>
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="loginUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="loginPassword" required>
+                    </div>
+                    <button type="submit" class="btn-large btn-primary" style="width:100%">Login</button>
+                    <p style="margin-top:15px; font-size:0.9rem;">
+                        <a href="#" onclick="showAuthChoice()">Back</a>
+                    </p>
                 </form>
-                <p>Don't have an account? <a href="#" onclick="showRegister()">Register here</a></p>
             </div>
 
             <!-- Register Form -->
-            <div id="register-form" class="form-container" style="display: none;">
-                <h2>Create New Account</h2>
+            <div id="registerFormContainer" class="auth-container">
+                <h2>Create Account</h2>
                 <form id="registerForm">
-                    <input type="text" id="regUsername" placeholder="Username" required>
-                    <input type="email" id="regEmail" placeholder="Email" required>
-                    <input type="password" id="regPassword" placeholder="Password" required>
-                    <input type="tel" id="regPhone" placeholder="Phone Number (for SMS alerts)">
-                    
-                    <select id="userCategory" required onchange="toggleFamilyMembers()">
-                        <option value="">Select User Category</option>
-                    </select>
-                    
-                    <div id="familyMembersField" class="family-members-field">
-                        <input type="number" id="familyMembers" placeholder="Number of Family Members" min="1" value="1">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="regUsername" required>
                     </div>
-                    
-                    <!-- Custom Limits Section -->
-                    <div id="customLimitsField" class="custom-limits-field" style="display: none;">
-                        <h4>Custom Consumption Limits (Optional)</h4>
-                        <p class="limit-info">Default limits: <span id="defaultEnergyLimit">0</span> kWh energy, <span id="defaultWaterLimit">0</span> L water</p>
-                        
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="regEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="regPassword" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone (for SMS)</label>
+                        <input type="tel" id="regPhone">
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="userCategory" required onchange="toggleFamilyMembers()">
+                            <option value="single">Single User</option>
+                            <option value="family">Family</option>
+                            <option value="hostel">Hostel</option>
+                            <option value="company">Company</option>
+                        </select>
+                    </div>
+                    <div id="familyMembersField" class="form-group" style="display:none;">
+                        <label>Family Members</label>
+                        <input type="number" id="familyMembers" min="1" value="1">
+                    </div>
+
+                    <div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4 style="margin-bottom:10px; color:var(--secondary-text);">Set Monthly Limits</h4>
                         <div class="form-group">
-                            <label>Custom Energy Limit (kWh)</label>
-                            <input type="number" step="1" id="customEnergyLimit" placeholder="Leave empty for default">
-                            <small>Set your monthly energy consumption limit</small>
+                            <label>Energy Limit (kWh)</label>
+                            <input type="number" id="customEnergyLimit" placeholder="Default: Auto">
                         </div>
-                        
                         <div class="form-group">
-                            <label>Custom Water Limit (Liters)</label>
-                            <input type="number" step="100" id="customWaterLimit" placeholder="Leave empty for default">
-                            <small>Set your monthly water consumption limit</small>
+                            <label>Water Limit (Liters)</label>
+                            <input type="number" id="customWaterLimit" placeholder="Default: Auto">
                         </div>
                     </div>
-                    
-                    <button type="submit">Register</button>
+
+                    <button type="submit" class="btn-large btn-primary" style="width:100%">Register</button>
+                    <p style="margin-top:15px; font-size:0.9rem;">
+                        <a href="#" onclick="showAuthChoice()">Back</a>
+                    </p>
                 </form>
-                <p>Already have an account? <a href="#" onclick="showLogin()">Login here</a></p>
             </div>
         </div>
 
-        <!-- Dashboard -->
-        <div id="dashboard" style="display: none;">
-            <nav class="navbar">
-                <h2>Welcome, <span id="userWelcome"></span>! <span id="categoryInfo"></span> <span id="limitsInfo"></span></h2>
-                <button onclick="logout()">Logout</button>
+        <!-- APP DASHBOARD SECTION -->
+        <div id="appSection" class="app-layout" style="display: none;">
+
+            <!-- Navigation -->
+            <nav class="top-nav">
+                <div class="nav-brand">💧⚡ Tracker</div>
+                <div class="nav-links">
+                    <button class="nav-btn active" onclick="switchView('overview')">Overview</button>
+                    <button class="nav-btn" onclick="switchView('water')">Water Tracker</button>
+                    <button class="nav-btn" onclick="switchView('energy')">Energy Tracker</button>
+                    <button class="nav-btn" onclick="switchView('settings')">Settings</button>
+                    <button class="nav-btn" onclick="logout()">Logout</button>
+                </div>
             </nav>
 
-            <div class="dashboard-content">
-                <!-- Quick Stats -->
-                <div class="stats-container">
-                    <div class="stat-card">
-                        <h3>Energy Usage</h3>
-                        <p id="energyStat">0 kWh</p>
+            <!-- VIEW: OVERVIEW -->
+            <div id="view-overview" class="section-content active">
+                <div class="card-grid">
+                    <div class="card theme-energy">
+                        <h3>Energy Used (Month)</h3>
+                        <div class="value" id="ovEnergyVal">0 kWh</div>
+                        <div class="sub-text" id="ovEnergyCost">0 MWK</div>
                     </div>
-                    <div class="stat-card">
-                        <h3>Water Usage</h3>
-                        <p id="waterStat">0 L</p>
+                    <div class="card theme-water">
+                        <h3>Water Used (Month)</h3>
+                        <div class="value" id="ovWaterVal">0 L</div>
+                        <div class="sub-text" id="ovWaterCost">0 MWK</div>
                     </div>
-                    <div class="stat-card">
+                    <div class="card">
                         <h3>Total Cost</h3>
-                        <p id="costStat">0 MWK</p>
+                        <div class="value" id="ovTotalCost">0 MWK</div>
+                        <div class="sub-text">Current Month</div>
                     </div>
                 </div>
 
-                <div class="meta-controls" style="margin-top:10px; display:flex; gap:16px; align-items:center;">
-                    <div><strong>Last update:</strong> <span id="lastUpdate">-</span></div>
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <label style="font-size:0.9rem">Report:</label>
-                        <input type="date" id="reportStart"> 
-                        <input type="date" id="reportEnd"> 
-                        <button onclick="downloadReport()">Download CSV</button>
-                    </div>
-                </div>
-
-                <!-- Monthly Progress -->
-                <div class="progress-container">
-                    <h3>Monthly Consumption Progress</h3>
-                    <div class="progress-section">
-                        <h4>Energy Usage</h4>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="energyProgressFill"></div>
-                        </div>
-                        <div class="progress-text" id="energyProgressText"></div>
-                    </div>
-                    <div class="progress-section">
-                        <h4>Water Usage</h4>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="waterProgressFill"></div>
-                        </div>
-                        <div class="progress-text" id="waterProgressText"></div>
-                    </div>
-                </div>
-
-                <!-- Charts Section -->
                 <div class="chart-container">
-                    <h3>📈 Weekly Resource Consumption & Limits</h3>
-                    
-                    <!-- Resource End Date Alerts -->
-                    <div id="resourceEndDateAlerts" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                        <!-- Alerts populated by JavaScript -->
-                    </div>
-                    
-                    <div class="charts-grid">
-                        <div class="chart-card">
-                            <h4>⚡ Energy Consumption vs Limit (7-Day Trend)</h4>
-                            <canvas id="energyChart"></canvas>
-                            <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
-                                <span id="energyDaysInfo">--</span><br>
-                                Projected exhaustion: <strong id="energyEndDate">--</strong> 
-                                (<span id="energyDaysRemaining">--</span> days remaining)
-                            </p>
-                        </div>
-                        <div class="chart-card">
-                            <h4>💧 Water Consumption vs Limit (7-Day Trend)</h4>
-                            <canvas id="waterChart"></canvas>
-                            <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">
-                                <span id="waterDaysInfo">--</span><br>
-                                Projected exhaustion: <strong id="waterEndDate">--</strong> 
-                                (<span id="waterDaysRemaining">--</span> days remaining)
-                            </p>
-                        </div>
-                    </div>
-                    <div id="monthlyBreakdown" class="breakdown-card"></div>
+                    <canvas id="mainOverviewChart"></canvas>
                 </div>
 
-                <!-- Data Entry Forms (Centered) -->
-                <div class="entry-forms">
-                    <div class="form-card">
-                        <h3>⚡ Add Energy Reading</h3>
-                        <form id="energyForm">
-                            <div class="form-group">
-                                <label>Electricity Usage (kWh)</label>
-                                <input type="number" step="0.01" id="electricityUsage" placeholder="e.g., 25.5" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Reading Date</label>
-                                <input type="date" id="energyDate" required>
-                            </div>
-                            <p class="cost-note">💡 Cost calculated automatically using ESCOM Malawi tariffs</p>
-                            <button type="submit">Add Energy Entry</button>
-                        </form>
+                <div class="card">
+                    <h3>Recent Alerts</h3>
+                    <div id="dashboardAlerts">
+                        <p style="color:#888; font-style:italic;">No recent alerts.</p>
                     </div>
-
-                    <div class="form-card">
-                        <h3>💧 Add Water Reading</h3>
-                        <form id="waterForm">
-                            <div class="form-group">
-                                <label>Water Usage (Liters)</label>
-                                <input type="number" step="0.01" id="waterUsage" placeholder="e.g., 1200" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Reading Date</label>
-                                <input type="date" id="waterDate" required>
-                            </div>
-                            <p class="cost-note">💡 Cost calculated automatically based on your user category</p>
-                            <button type="submit">Add Water Entry</button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Profile Management (Moved Higher) -->
-                <div class="profile-section" style="margin:25px 0; padding:20px; background:#fff3cd; border-radius:10px; border-left:4px solid #f39c12;">
-                    <h3>👤 Profile & Custom Limits</h3>
-                    <div class="profile-card">
-                        <button onclick="showProfileModal()" style="padding:10px 20px; font-size:1rem; background:#f39c12; color:white; border:none; border-radius:5px; cursor:pointer;">Update Profile & Custom Limits</button>
-                        <p class="profile-note" style="margin-top:10px; font-size:0.95rem; color:#666;">Manage your account settings, custom consumption limits, and receive personalized alerts</p>
-                    </div>
-                </div>
-
-                <!-- Tips & Recommendations Section -->
-                <div class="tips-section" style="margin:30px 0; padding:20px; background:#f0f8ff; border-radius:10px; border-left:4px solid #3498db;">
-                    <h3>💡 Conservation Tips & Recommendations</h3>
-                    <div id="tipsList" style="display:grid; grid-template-columns:1fr; gap:15px; margin-top:15px;">
-                        <!-- Tips will be populated here by JavaScript -->
-                    </div>
-                </div>
-
-                <!-- Notifications -->
-                <div class="notifications">
-                    <h3>🔔 Notifications & Alerts</h3>
-                    <div id="notificationsList"></div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Profile Modal -->
-    <div id="profileModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <span class="close" onclick="closeProfileModal()">&times;</span>
-            <h3>Update Profile & Custom Limits</h3>
-            <form id="profileForm">
-                <div class="form-group">
-                    <label>Phone Number</label>
-                    <input type="tel" id="profilePhone" placeholder="+265...">
+            <!-- VIEW: WATER TRACKER -->
+            <div id="view-water" class="section-content theme-water">
+                <div class="entry-form-card">
+                    <h2 style="color:var(--water-dark); margin-bottom:20px;">💧 Add Water Reading</h2>
+                    <form id="waterEntryForm">
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" id="waterDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Usage (Liters)</label>
+                            <input type="number" id="waterUsage" step="0.1" required oninput="previewWaterCost()">
+                        </div>
+                        <div id="waterPreview" class="cost-preview" style="display:none;">
+                            Cost: <span id="waterCostPreview">0</span> MWK<br>
+                            <span id="waterLimitWarning" style="color:var(--danger); font-size:0.9rem;"></span>
+                        </div>
+                        <button type="submit" class="btn-large btn-primary"
+                            style="width:100%; margin-top:15px; background-color:var(--water-primary);">Add
+                            Entry</button>
+                    </form>
                 </div>
-                <div class="form-group">
-                    <label>User Category</label>
-                    <select id="profileCategory" onchange="toggleProfileFamilyMembers()">
-                        <option value="single">Single User</option>
-                        <option value="family">Family</option>
-                        <option value="hostel">Hostel/Commercial</option>
-                        <option value="company">Company</option>
-                    </select>
-                </div>
-                <div id="profileFamilyMembersField" class="family-members-field">
-                    <div class="form-group">
-                        <label>Family Members</label>
-                        <input type="number" id="profileFamilyMembers" min="1" value="1">
+
+                <div class="card-grid">
+                    <div class="card">
+                        <h3>Monthly Limit</h3>
+                        <div class="value" id="waterLimitDisplay">0 L</div>
+                    </div>
+                    <div class="card">
+                        <h3>Remaining</h3>
+                        <div class="value" id="waterRemainingDisplay">0 L</div>
                     </div>
                 </div>
-                
-                <!-- Custom Limits in Profile -->
-                <div id="profileCustomLimitsField" class="custom-limits-field">
-                    <h4>Custom Consumption Limits</h4>
-                    <p class="limit-info">Default limits: <span id="profileDefaultEnergyLimit">0</span> kWh energy, <span id="profileDefaultWaterLimit">0</span> L water</p>
-                    
-                    <div class="form-group">
-                        <label>Custom Energy Limit (kWh)</label>
-                        <input type="number" step="1" id="profileCustomEnergyLimit" placeholder="Leave empty for default">
-                        <small>Set 0 or empty to use default limit</small>
+
+                <div class="chart-container">
+                    <canvas id="waterChart"></canvas>
+                </div>
+
+                <div class="card">
+                    <h3>Conservation Tips</h3>
+                    <div id="waterTipsList"></div>
+                </div>
+            </div>
+
+            <!-- VIEW: ENERGY TRACKER -->
+            <div id="view-energy" class="section-content theme-energy">
+                <div class="entry-form-card">
+                    <h2 style="color:var(--energy-text); margin-bottom:20px;">⚡ Add Energy Reading</h2>
+                    <form id="energyEntryForm">
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" id="energyDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Usage (kWh)</label>
+                            <input type="number" id="energyUsage" step="0.1" required oninput="previewEnergyCost()">
+                        </div>
+                        <div id="energyPreview" class="cost-preview" style="display:none;">
+                            Cost: <span id="energyCostPreview">0</span> MWK<br>
+                            <span id="energyLimitWarning" style="color:var(--danger); font-size:0.9rem;"></span>
+                        </div>
+                        <button type="submit" class="btn-large btn-primary"
+                            style="width:100%; margin-top:15px; background-color:var(--energy-dark); border:none;">Add
+                            Entry</button>
+                    </form>
+                </div>
+
+                <div class="card-grid">
+                    <div class="card">
+                        <h3>Monthly Limit</h3>
+                        <div class="value" id="energyLimitDisplay">0 kWh</div>
                     </div>
-                    
-                    <div class="form-group">
-                        <label>Custom Water Limit (Liters)</label>
-                        <input type="number" step="100" id="profileCustomWaterLimit" placeholder="Leave empty for default">
-                        <small>Set 0 or empty to use default limit</small>
+                    <div class="card">
+                        <h3>Remaining</h3>
+                        <div class="value" id="energyRemainingDisplay">0 kWh</div>
                     </div>
                 </div>
-                
-                <button type="submit">Update Profile & Limits</button>
-            </form>
+
+                <div class="chart-container">
+                    <canvas id="energyChart"></canvas>
+                </div>
+
+                <div class="card">
+                    <h3>Conservation Tips</h3>
+                    <div id="energyTipsList"></div>
+                </div>
+            </div>
+
+            <!-- VIEW: SETTINGS -->
+            <div id="view-settings" class="section-content">
+                <div class="entry-form-card" style="max-width:800px;">
+                    <h2>Settings & Profile</h2>
+
+                    <!-- USER PROFILE SECTION -->
+                    <div style="margin-top:20px; margin-bottom:30px;">
+                        <h3>👤 User Profile</h3>
+                        <div class="profile-info">
+                            <div class="profile-row">
+                                <strong>Username:</strong>
+                                <span id="profileUsername">-</span>
+                            </div>
+                            <div class="profile-row">
+                                <strong>Email:</strong>
+                                <span id="profileEmail">-</span>
+                            </div>
+                            <div class="profile-row">
+                                <strong>Category:</strong>
+                                <span id="profileCategoryDisplay">-</span>
+                            </div>
+                        </div>
+
+                        <h4 style="margin-top:25px; margin-bottom:15px;">📊 Your Monthly Limits</h4>
+                        <div class="limits-display">
+                            <div class="limit-item theme-energy">
+                                <div style="font-size:0.9rem; opacity:0.9;">⚡ Energy Limit</div>
+                                <div id="profileEnergyLimit"
+                                    style="font-size:1.5rem; font-weight:bold; margin-top:5px;">- kWh</div>
+                            </div>
+                            <div class="limit-item theme-water">
+                                <div style="font-size:0.9rem; opacity:0.9;">💧 Water Limit</div>
+                                <div id="profileWaterLimit" style="font-size:1.5rem; font-weight:bold; margin-top:5px;">
+                                    - L</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr style="margin:30px 0; border:0; border-top:1px solid #eee;">
+
+                    <div style="margin-top:20px;">
+                        <h3>⚙️ Update Limits</h3>
+                        <p style="color:#666; margin-bottom:15px;">Adjust your monthly consumption goals.</p>
+                        <form id="updateLimitsForm">
+                            <div class="form-group">
+                                <label>New Energy Limit (kWh)</label>
+                                <input type="number" id="settingEnergyLimit">
+                            </div>
+                            <div class="form-group">
+                                <label>New Water Limit (Liters)</label>
+                                <input type="number" id="settingWaterLimit">
+                            </div>
+                            <button type="submit" class="btn-large btn-primary"
+                                style="font-size:1rem; padding:10px 20px;">Save Limits</button>
+                        </form>
+                    </div>
+
+                    <hr style="margin:30px 0; border:0; border-top:1px solid #eee;">
+
+                    <div>
+                        <h3>Data Reports</h3>
+                        <p style="color:#666; margin-bottom:15px;">Download your usage history.</p>
+                        <div style="display:flex; gap:10px; align-items:flex-end;">
+                            <div class="form-group" style="margin-bottom:0; flex:1;">
+                                <label>Start Date</label>
+                                <input type="date" id="reportStart">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0; flex:1;">
+                                <label>End Date</label>
+                                <input type="date" id="reportEnd">
+                            </div>
+                            <button onclick="downloadCSV()" class="btn-large btn-secondary"
+                                style="font-size:1rem; padding:10px 20px;">Download CSV</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="script_enhanced.js"></script>
 </body>
+
 </html>
