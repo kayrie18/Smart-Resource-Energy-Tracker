@@ -11,6 +11,7 @@ class User(db.Model):
     family_members = db.Column(db.Integer, default=1)  # For family category
     custom_energy_limit = db.Column(db.Float, default=0)  # 0 means use default, >0 means custom limit
     custom_water_limit = db.Column(db.Float, default=0)   # 0 means use default, >0 means custom limit
+    is_admin = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -60,3 +61,24 @@ class Notification(db.Model):
     is_read = db.Column(db.Boolean, default=False)
     sms_sent = db.Column(db.Boolean, default=False)  # Track SMS delivery
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Tariff(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    # Type: 'energy' or 'water'
+    resource_type = db.Column(db.String(20), nullable=False)
+    # Category: 'single', 'family', 'hostel', 'company'
+    user_category = db.Column(db.String(50), nullable=False)
+    
+    # Rate structure
+    rate_per_unit = db.Column(db.Float, default=0) # Base rate (e.g. water rate, commercial energy rate)
+    fixed_charge = db.Column(db.Float, default=0)
+    
+    # Block Tariff (Energy Domestic)
+    tier_1_limit = db.Column(db.Float, default=0)   # e.g. 50
+    tier_1_rate = db.Column(db.Float, default=0)    # e.g. 71.35
+    tier_2_rate = db.Column(db.Float, default=0)    # e.g. 109.05
+    
+    # Limits
+    default_limit = db.Column(db.Float, default=0)
+    
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -29,7 +29,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const reportStart = document.getElementById('reportStart');
     if (reportStart) reportStart.value = lastWeek.toISOString().split('T')[0];
 
-    // Check login
+    // Check login - Auto-login disabled per user request
+    /*
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
         currentUser = JSON.parse(savedUser);
@@ -37,10 +38,52 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
         showLanding();
     }
+    */
+    showLanding(); // Always show landing first
+
 
     // Load categories for registration
     loadUserCategories();
+
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+            .then(() => console.log('Service Worker Registered'))
+            .catch(err => console.error('Service Worker Failed', err));
+    }
+
+    // Initialize Theme
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
 });
+
+// --- THEME & UI ---
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme');
+    const newTheme = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+}
+
+function updateThemeIcon(theme) {
+    const btn = document.getElementById('themeToggle');
+    if (btn) btn.innerHTML = theme === 'dark' ? '☀️' : '🌙';
+}
+
+// toggleTheme removed as per user request for original interface
+
+function showToast(message, type = 'success') {
+    // Revert to alert for errors/warnings, simplified for success
+    if (type === 'error' || type === 'warning') {
+        alert(message);
+    } else {
+        // Optional: console.log or simple alert for success
+        console.log(message);
+    }
+}
 
 // --- NAVIGATION & VIEW SWITCHING ---
 
@@ -53,6 +96,15 @@ function showLanding() {
 function showApp() {
     document.getElementById('landingSection').style.display = 'none';
     document.getElementById('appSection').style.display = 'flex';
+
+    // Show Admin Button if admin
+    const adminBtn = document.getElementById('nav-admin');
+    if (adminBtn && currentUser) {
+        // Ensure strictly boolean check or truthy
+        adminBtn.style.display = currentUser.is_admin ? 'block' : 'none';
+        console.log("Admin check:", currentUser.is_admin);
+    }
+
     switchView('overview');
     loadDashboardData();
     loadUserProfile();
@@ -105,6 +157,16 @@ function showRegister() {
     document.getElementById('registerFormContainer').style.display = 'block';
 }
 
+function logout() {
+    localStorage.removeItem('currentUser');
+    currentUser = null;
+    showLanding();
+    // Clear forms
+    document.getElementById('loginForm').reset();
+    document.getElementById('registerForm').reset();
+    showToast('Logged out successfully');
+}
+
 function switchView(viewName) {
     currentView = viewName;
 
@@ -135,7 +197,9 @@ function logout() {
     currentUser = null;
     localStorage.removeItem('currentUser');
     showLanding();
+    showToast('Logged out successfully', 'success');
 }
+
 
 
 // --- AUTHENTICATION ---
@@ -167,6 +231,7 @@ function toggleFamilyMembers() {
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    console.log("Login form submitted");
     const username = document.getElementById('loginUsername').value;
     const password = document.getElementById('loginPassword').value;
 
@@ -177,14 +242,22 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             body: JSON.stringify({ username, password })
         });
         const data = await res.json();
+        console.log("Login response:", res.status, data);
+
         if (res.ok) {
             currentUser = data;
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            console.log("Calling showApp()...");
             showApp();
+            showToast(`Welcome back, ${currentUser.username}!`);
         } else {
-            alert(data.error || 'Login failed');
+            console.error("Login failed:", data.error);
+            showToast(data.error || 'Login failed', 'error');
         }
-    } catch (err) { alert('Connection error'); }
+    } catch (err) {
+        console.error("Login exception:", err);
+        showToast('Connection error', 'error');
+    }
 });
 
 document.getElementById('registerForm').addEventListener('submit', async (e) => {
@@ -209,12 +282,12 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
         });
         const data = await res.json();
         if (res.ok) {
-            alert('Registration successful! Please login.');
+            showToast('Registration successful! Please login.', 'success');
             showLogin();
         } else {
-            alert(data.error || 'Registration failed');
+            showToast(data.error || 'Registration failed', 'error');
         }
-    } catch (err) { alert('Connection error'); }
+    } catch (err) { showToast('Connection error', 'error'); }
 });
 
 // --- DATA LOADING & DASHBOARD ---
@@ -252,12 +325,80 @@ async function loadDashboardData() {
 }
 
 function updateOverviewUI(data) {
-    document.getElementById('ovEnergyVal').textContent = `${data.monthly_energy_used.toFixed(1)} kWh`;
-    document.getElementById('ovWaterVal').textContent = `${data.monthly_water_used.toFixed(0)} L`;
+    document.getElementById('ovEnergyVal').textContent = `${data.monthly_energy_used.toFixed(1)} kWh/mo`;
+    document.getElementById('ovWaterVal').textContent = `${data.monthly_water_used.toFixed(0)} L/mo`;
     document.getElementById('ovTotalCost').textContent = `${data.total_cost.toFixed(2)} MWK`;
 
-    // Calculate individual costs roughly if not provided directly, or use totals
-    // Ideally backend provides breakdown, but for now we use total cost
+    // Render Trends Chart
+    renderUsageTrendsChart(
+        data.weekly_energy_used,
+        data.prev_weekly_energy_used || 0,
+        data.weekly_water_used,
+        data.prev_weekly_water_used || 0
+    );
+}
+
+let trendsChart = null;
+
+function renderUsageTrendsChart(currEnergy, prevEnergy, currWater, prevWater) {
+    const ctx = document.getElementById('usageTrendsChart');
+    if (!ctx) return;
+
+    if (trendsChart) {
+        trendsChart.destroy();
+    }
+
+    trendsChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Energy (kWh)', 'Water (L/100)'], // Scaled water for visibility
+            datasets: [
+                {
+                    label: 'This Week',
+                    data: [currEnergy, currWater / 100],
+                    backgroundColor: ['rgba(251, 192, 45, 0.7)', 'rgba(2, 136, 209, 0.7)'],
+                    borderColor: ['rgba(251, 192, 45, 1)', 'rgba(2, 136, 209, 1)'],
+                    borderWidth: 1
+                },
+                {
+                    label: 'Last Week',
+                    data: [prevEnergy, prevWater / 100],
+                    backgroundColor: ['rgba(224, 224, 224, 0.7)', 'rgba(224, 224, 224, 0.7)'],
+                    borderColor: ['#9e9e9e', '#9e9e9e'],
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Usage Units' }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            let val = context.raw;
+                            // Unscale water for tooltip
+                            if (context.label.includes('Water')) {
+                                val = val * 100;
+                                return label + val.toFixed(0) + ' L';
+                            }
+                            return label + val.toFixed(1) + ' kWh';
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 function updateWaterUI(data) {
@@ -275,27 +416,57 @@ function updateEnergyUI(data) {
 function renderTips(tips) {
     const waterList = document.getElementById('waterTipsList');
     const energyList = document.getElementById('energyTipsList');
+    const dashboardAlerts = document.getElementById('dashboardAlerts');
 
     if (waterList) waterList.innerHTML = '';
     if (energyList) energyList.innerHTML = '';
+    if (dashboardAlerts) dashboardAlerts.innerHTML = '';
 
-    if (!tips) return;
+    if (!tips || tips.length === 0) {
+        if (dashboardAlerts) dashboardAlerts.innerHTML = '<p style="color:#888; font-style:italic;">No recent alerts.</p>';
+        return;
+    }
+
+    let hasAlerts = false;
 
     tips.forEach(tip => {
         const div = document.createElement('div');
         div.className = 'tip-card';
         div.innerHTML = `<strong>${tip.title}</strong><p>${tip.detail}</p>`;
 
-        // Simple heuristic to distribute tips
-        if (tip.title.toLowerCase().includes('water') || tip.detail.toLowerCase().includes('leak') || tip.detail.toLowerCase().includes('shower')) {
+        // Add to Dashboard Alerts if it's a "Spike" or "High" usage
+        if (tip.title.includes('Spike') || tip.title.includes('High')) {
+            if (dashboardAlerts) {
+                const alertDiv = div.cloneNode(true);
+                alertDiv.style.borderLeft = '4px solid var(--danger)';
+                dashboardAlerts.appendChild(alertDiv);
+                hasAlerts = true;
+            }
+        }
+
+        // Distribute to specific tabs (STRICT SEPARATION)
+        // Water Tips -> Water List Only
+        if (tip.title.toLowerCase().includes('water') || tip.detail.toLowerCase().includes('leak') || tip.title.includes('Plumbing')) {
+            if (waterList && (tip.title.includes('Water') || tip.title.includes('Plumbing') || tip.detail.includes('water'))) {
+                waterList.appendChild(div.cloneNode(true));
+            }
+        }
+        // Energy Tips -> Energy List Only
+        else if (tip.title.toLowerCase().includes('energy') || tip.detail.toLowerCase().includes('bulb') || tip.title.toLowerCase().includes('ac')) {
+            if (energyList && (tip.title.includes('Energy') || tip.detail.includes('kWh'))) {
+                energyList.appendChild(div.cloneNode(true));
+            }
+        }
+        // General Tips -> Both Lists
+        else {
             if (waterList) waterList.appendChild(div.cloneNode(true));
-        } else if (tip.title.toLowerCase().includes('energy') || tip.detail.toLowerCase().includes('bulb') || tip.detail.toLowerCase().includes('ac')) {
             if (energyList) energyList.appendChild(div.cloneNode(true));
-        } else {
-            // General tips go to both or just one
-            if (waterList) waterList.appendChild(div.cloneNode(true));
         }
     });
+
+    if (!hasAlerts && dashboardAlerts) {
+        dashboardAlerts.innerHTML = '<p style="color:#888; font-style:italic;">No critical alerts. Good usage!</p>';
+    }
 }
 
 // --- CHARTS ---
@@ -340,54 +511,52 @@ function renderCharts(data) {
         });
     }
 
-    // 2. Water Chart
+    // 2. Water Chart (Daily Bar)
     const ctxWater = document.getElementById('waterChart');
     if (ctxWater && currentView === 'water') {
         if (waterChart) waterChart.destroy();
         waterChart = new Chart(ctxWater, {
-            type: 'line',
+            type: 'bar', // Changed to bar for daily view
             data: {
                 labels: dates,
                 datasets: [{
-                    label: 'Water Usage (Cumulative)',
+                    label: 'Water Usage (L)', // Daily
                     data: data.water_data,
-                    borderColor: '#0288d1',
-                    backgroundColor: 'rgba(2, 136, 209, 0.1)',
-                    fill: true,
-                    tension: 0.4
+                    backgroundColor: '#0288d1',
+                    order: 2
                 }, {
-                    label: 'Limit',
-                    data: Array(dates.length).fill(data.water_limit), // Weekly limit from backend
+                    label: 'Daily Limit',
+                    data: Array(dates.length).fill(data.water_limit),
                     borderColor: '#f44336',
                     borderDash: [5, 5],
-                    fill: false
+                    type: 'line', // Line for limit
+                    order: 1
                 }]
             },
             options: { responsive: true, maintainAspectRatio: false }
         });
     }
 
-    // 3. Energy Chart
+    // 3. Energy Chart (Daily Bar)
     const ctxEnergy = document.getElementById('energyChart');
     if (ctxEnergy && currentView === 'energy') {
         if (energyChart) energyChart.destroy();
         energyChart = new Chart(ctxEnergy, {
-            type: 'line',
+            type: 'bar', // Changed to bar for daily view
             data: {
                 labels: dates,
                 datasets: [{
-                    label: 'Energy Usage (Cumulative)',
+                    label: 'Energy Usage (kWh)', // Daily
                     data: data.energy_data,
-                    borderColor: '#fbc02d',
-                    backgroundColor: 'rgba(251, 192, 45, 0.1)',
-                    fill: true,
-                    tension: 0.4
+                    backgroundColor: '#fbc02d',
+                    order: 2
                 }, {
-                    label: 'Limit',
+                    label: 'Daily Limit',
                     data: Array(dates.length).fill(data.energy_limit),
                     borderColor: '#f44336',
                     borderDash: [5, 5],
-                    fill: false
+                    type: 'line', // Line for limit
+                    order: 1
                 }]
             },
             options: { responsive: true, maintainAspectRatio: false }
@@ -470,14 +639,14 @@ document.getElementById('waterEntryForm').addEventListener('submit', async (e) =
         });
         const data = await res.json();
         if (res.ok) {
-            alert('Water entry added!');
+            showToast('Water entry added!', 'success');
             document.getElementById('waterUsage').value = '';
             document.getElementById('waterPreview').style.display = 'none';
             loadDashboardData();
         } else {
-            alert(data.error);
+            showToast(data.error, 'error');
         }
-    } catch (e) { alert('Error adding entry'); }
+    } catch (e) { showToast('Error adding entry', 'error'); }
 });
 
 document.getElementById('energyEntryForm').addEventListener('submit', async (e) => {
@@ -495,14 +664,14 @@ document.getElementById('energyEntryForm').addEventListener('submit', async (e) 
         });
         const data = await res.json();
         if (res.ok) {
-            alert('Energy entry added!');
+            showToast('Energy entry added!', 'success');
             document.getElementById('energyUsage').value = '';
             document.getElementById('energyPreview').style.display = 'none';
             loadDashboardData();
         } else {
-            alert(data.error);
+            showToast(data.error, 'error');
         }
-    } catch (e) { alert('Error adding entry'); }
+    } catch (e) { showToast('Error adding entry', 'error'); }
 });
 
 // --- SETTINGS & REPORTS ---
@@ -518,7 +687,7 @@ document.getElementById('updateLimitsForm').addEventListener('submit', async (e)
     if (!isNaN(waterLimit)) payload.custom_water_limit = waterLimit;
 
     if (Object.keys(payload).length === 0) {
-        alert('Please enter at least one limit to update.');
+        showToast('Please enter at least one limit to update.', 'warning');
         return;
     }
 
@@ -531,7 +700,7 @@ document.getElementById('updateLimitsForm').addEventListener('submit', async (e)
         const data = await res.json();
 
         if (res.ok) {
-            alert('Limits updated successfully!');
+            showToast('Limits updated successfully!', 'success');
             // Update local user object if needed, or just reload dashboard
             if (payload.custom_energy_limit !== undefined) currentUser.custom_energy_limit = payload.custom_energy_limit;
             if (payload.custom_water_limit !== undefined) currentUser.custom_water_limit = payload.custom_water_limit;
@@ -540,119 +709,18 @@ document.getElementById('updateLimitsForm').addEventListener('submit', async (e)
             // Refresh data
             loadDashboardData();
         } else {
-            alert(data.error || 'Failed to update limits');
+            showToast(data.error || 'Failed to update limits', 'error');
         }
     } catch (e) {
         console.error(e);
-        alert('Error updating profile');
-    }
-});
-
-// --- WATER ENTRY FORM HANDLER ---
-document.getElementById('waterEntryForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const usage = parseFloat(document.getElementById('waterUsage').value);
-    const date = document.getElementById('waterDate').value;
-
-    if (!usage || !date) {
-        alert('Please fill in all fields');
-        return;
-    }
-
-    try {
-        const res = await fetch(`${API_BASE}/water-entries`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: currentUser.user_id,
-                water_usage: usage,
-                reading_date: date
-            })
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-            alert('Water entry added successfully!');
-            document.getElementById('waterEntryForm').reset();
-            // Set date back to today
-            document.getElementById('waterDate').value = new Date().toISOString().split('T')[0];
-            // Refresh dashboard data and charts
-            await loadDashboardData();
-        } else {
-            alert(data.error || 'Failed to add water entry');
-        }
-    } catch (e) {
-        console.error(e);
-        alert('Error adding water entry');
-    }
-});
-
-// --- ENERGY ENTRY FORM HANDLER ---
-document.getElementById('energyEntryForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const usage = parseFloat(document.getElementById('energyUsage').value);
-    const date = document.getElementById('energyDate').value;
-
-    if (!usage || !date) {
-        alert('Please fill in all fields');
-        return;
-    }
-
-    try {
-        const res = await fetch(`${API_BASE}/energy-entries`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: currentUser.user_id,
-                electricity_usage: usage,
-                reading_date: date
-            })
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-            alert('Energy entry added successfully!');
-            document.getElementById('energyEntryForm').reset();
-            // Set date back to today
-            document.getElementById('energyDate').value = new Date().toISOString().split('T')[0];
-            // Refresh dashboard data and charts
-            await loadDashboardData();
-        } else {
-            alert(data.error || 'Failed to add energy entry');
-        }
-    } catch (e) {
-        console.error(e);
-        alert('Error adding energy entry');
+        showToast('Error updating profile', 'error');
     }
 });
 
 function downloadCSV() {
     const start = document.getElementById('reportStart').value;
     const end = document.getElementById('reportEnd').value;
-    // Construct a CSV from client side or request from backend
-    // Using the analytics endpoint to get data then convert to CSV
 
-    fetch(`${API_BASE}/analytics/${currentUser.user_id}?start_date=${start}&end_date=${end}`)
-        .then(res => res.json())
-        .then(data => {
-            // Flatten data
-            // This is a simplified CSV generation
-            let csvContent = "data:text/csv;charset=utf-8,";
-            csvContent += "Date,Type,Usage,Cost (MWK)\n";
-
-            // We need to merge energy and water entries from the analytics response
-            // The analytics endpoint in app.py returns 'series' if we look at the python code?
-            // Actually the python code for analytics returns 'series' list.
-
-            // Let's assume we can get the series from the response if we updated app.py to return it.
-            // The current app.py analytics endpoint returns 'tips', 'monthly_energy', etc.
-            // It DOES calculate series but doesn't seem to return it in the JSON in the snippet I saw?
-            // Wait, looking at app.py snippet:
-            // It calculates `series` but the return statement was cut off in the view_file.
-            // I should verify if `series` is returned.
-
-            // If not, I'll just alert for now or try to use what I have.
-            alert("Downloading CSV...");
-            window.open(`${API_BASE}/report/${currentUser.user_id}?start_date=${start}&end_date=${end}&format=csv`, '_blank');
-        });
+    showToast('Downloading CSV report...', 'success');
+    window.open(`${API_BASE}/export/${currentUser.user_id}?start_date=${start}&end_date=${end}`, '_blank');
 }
