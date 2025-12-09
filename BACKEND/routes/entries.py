@@ -7,8 +7,10 @@ from utils.helpers import (
     calculate_water_cost, 
     get_monthly_usage, 
     get_user_limits, 
+    get_user_limits, 
     check_high_consumption
 )
+from utils.email import check_and_alert_limit
 
 entries_bp = Blueprint('entries', __name__)
 
@@ -76,6 +78,10 @@ def add_energy_entry():
         # Check for high consumption
         check_high_consumption(user, data['electricity_usage'], 'energy')
         
+        # Check and Alert Limit
+        new_total = monthly_usage_so_far + data['electricity_usage']
+        check_and_alert_limit(user, 'energy', new_total, energy_limit)
+        
         return jsonify({
             'message': 'Energy entry added successfully',
             'calculated_cost': calculated_cost,
@@ -142,6 +148,10 @@ def add_water_entry():
         
         # Check for high consumption
         check_high_consumption(user, data['water_usage'], 'water')
+        
+        # Check and Alert Limit
+        new_total_water = monthly_water_so_far + data['water_usage']
+        check_and_alert_limit(user, 'water', new_total_water, water_limit)
         
         return jsonify({
             'message': 'Water entry added successfully',

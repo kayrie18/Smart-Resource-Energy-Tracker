@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from modules import User
 from database import db
 from werkzeug.security import generate_password_hash, check_password_hash
+from utils.email import send_email
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -29,6 +30,13 @@ def register():
         
         db.session.add(user)
         db.session.commit()
+        
+        # Send Welcome Email
+        send_email(
+            user.email, 
+            "Welcome to Smart Resource Tracker!", 
+            f"Hi {user.username},\n\nWelcome to SRET! Start tracking your energy and water usage today.\n\nHappy Conserving!"
+        )
         
         return jsonify({
             'message': 'User created successfully', 
