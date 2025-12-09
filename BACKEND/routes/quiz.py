@@ -43,6 +43,36 @@ QUESTIONS = [
         "question": "What is the most energy-efficient way to boil water?",
         "options": ["Electric Kettle", "Stove top pot", "Microwave", "Open fire"],
         "correct": 0
+    },
+    {
+        "id": 7,
+        "question": "Which appliance should you run only when full to save energy/water?",
+        "options": ["Toaster", "Dishwasher", "Microwave", "TV"],
+        "correct": 1
+    },
+    {
+        "id": 8,
+        "question": "What is a 'low-flow' showerhead designed to do?",
+        "options": ["Make water colder", "Reduce water usage without losing pressure", "Increase water bill", "Filter out minerals"],
+        "correct": 1
+    },
+    {
+        "id": 9,
+        "question": "Turning off the lights when leaving a room can save how much energy?",
+        "options": ["None", "Very little", "Significant amounts over time", "It damages the switch"],
+        "correct": 2
+    },
+    {
+        "id": 10,
+        "question": "What is the best way to defrost frozen food safely and efficiently?",
+        "options": ["On the counter", "In the microwave", "In the fridge overnight", "In hot water"],
+        "correct": 2
+    },
+    {
+        "id": 11,
+        "question": "Which uses less water for the same hygiene result?",
+        "options": ["Items bath (full tub)", "5-minute shower", "10-minute shower", "Sponge bath"],
+        "correct": 1
     }
 ]
 
