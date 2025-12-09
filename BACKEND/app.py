@@ -13,9 +13,14 @@ app.config.from_object(Config)
 CORS(app)
 db.init_app(app)
 
-# Ensure tables exist (Render/Gunicorn)
+# Ensure tables exist (Render/Gunicorn) - safely
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+        print("✅ Database tables created successfully.")
+    except Exception as e:
+        print(f"❌ Error creating database tables: {e}")
+
 mail = Mail(app)
 
 # Register Blueprints
