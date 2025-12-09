@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sret-v7';
+const CACHE_NAME = 'sret-v8';
 const ASSETS = [
     './',
     './index.html',
