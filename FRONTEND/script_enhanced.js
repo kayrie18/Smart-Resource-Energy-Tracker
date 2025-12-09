@@ -108,6 +108,7 @@ function showApp() {
     switchView('overview');
     loadDashboardData();
     loadUserProfile();
+    loadAchievements();
 }
 
 async function loadUserProfile() {
@@ -723,4 +724,138 @@ function downloadCSV() {
 
     showToast('Downloading CSV report...', 'success');
     window.open(`${API_BASE}/export/${currentUser.user_id}?start_date=${start}&end_date=${end}`, '_blank');
+}
+
+// --- QUIZ & GAMIFICATION ---
+
+let currentQuestions = [];
+let userAnswers = {}; // {question_id: selected_index}
+
+async function startQuiz() {
+    try {
+        const res = await fetch(`${API_BASE}/quiz/questions`);
+        currentQuestions = await res.json();
+        userAnswers = {};
+
+        document.getElementById('quiz-start-screen').style.display = 'none';
+        document.getElementById('quiz-result-screen').style.display = 'none';
+        document.getElementById('quiz-question-screen').style.display = 'block';
+
+        renderQuizQuestion(0);
+    } catch (e) { console.error('Error starting quiz', e); }
+}
+
+function renderQuizQuestion(index) {
+    if (index >= currentQuestions.length) {
+        finishQuiz();
+        return;
+    }
+
+    const q = currentQuestions[index];
+    const total = currentQuestions.length;
+    const progress = ((index) / total) * 100;
+
+    document.getElementById('quizProgress').style.width = `${progress}%`;
+    document.getElementById('questionText').textContent = q.question;
+
+    const container = document.getElementById('optionsContainer');
+    container.innerHTML = '';
+
+    q.options.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-large btn-secondary';
+        btn.style.textAlign = 'left';
+        btn.textContent = opt;
+        btn.onclick = () => selectOption(q.id, idx, index);
+        container.appendChild(btn);
+    });
+}
+
+function selectOption(qId, selectedIdx, currentIndex) {
+    userAnswers[qId] = selectedIdx;
+    renderQuizQuestion(currentIndex + 1);
+}
+
+async function finishQuiz() {
+    document.getElementById('quizProgress').style.width = '100%';
+
+    try {
+        const res = await fetch(`${API_BASE}/quiz/submit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: currentUser.user_id,
+                answers: userAnswers
+            })
+        });
+        const result = await res.json();
+
+        document.getElementById('quiz-question-screen').style.display = 'none';
+        document.getElementById('quiz-result-screen').style.display = 'block';
+
+        document.getElementById('scoreDisplay').textContent = `${result.score}/${result.total}`;
+
+        const badgeContainer = document.getElementById('newBadges');
+        badgeContainer.innerHTML = '';
+        if (result.achievements && result.achievements.length > 0) {
+            result.achievements.forEach(name => {
+                const b = document.createElement('div');
+                b.className = 'badge-new';
+                b.style.background = '#ffd700';
+                b.style.padding = '5px 10px';
+                b.style.borderRadius = '15px';
+                b.style.fontWeight = 'bold';
+                b.textContent = `🏆 Unlocked: ${name}`;
+                badgeContainer.appendChild(b);
+            });
+            showToast('New Achievements Unlocked!', 'success');
+        }
+
+        loadAchievements(); // Refresh list
+
+    } catch (e) { console.error(e); }
+}
+
+async function loadAchievements() {
+    if (!currentUser) return;
+    try {
+        const res = await fetch(`${API_BASE}/quiz/achievements/${currentUser.user_id}`);
+        const data = await res.json();
+
+        const ptsEl = document.getElementById('totalPoints');
+        if (ptsEl) ptsEl.textContent = `${data.total_points} Points`;
+
+        const container = document.getElementById('badgesContainer');
+        if (container) {
+            container.innerHTML = '';
+
+            if (data.achievements.length === 0) {
+                container.innerHTML = '<p style="color:#888;">No badges yet. Play a quiz!</p>';
+                return;
+            }
+
+            data.achievements.forEach(ach => {
+                const div = document.createElement('div');
+                div.className = 'badge-card';
+                div.style.border = '1px solid #eee';
+                div.style.padding = '10px';
+                div.style.borderRadius = '8px';
+                div.style.display = 'flex';
+                div.style.alignItems = 'center';
+                div.style.gap = '10px';
+                // div.style.width = '100%'; // Allow wrap
+                div.style.background = 'var(--bg-light)';
+
+                div.innerHTML = `
+                    <div style="font-size:2rem;">${ach.icon}</div>
+                    <div>
+                        <div style="font-weight:bold;">${ach.name}</div>
+                        <div style="font-size:0.8rem; color:#666;">${ach.description}</div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+    } catch (e) { console.error(e); }
 }

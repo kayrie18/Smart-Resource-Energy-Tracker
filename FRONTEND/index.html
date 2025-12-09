@@ -110,6 +110,7 @@
                     <button class="nav-btn" onclick="switchView('water')">Water Tracker</button>
                     <button class="nav-btn" onclick="switchView('energy')">Energy Tracker</button>
                     <button class="nav-btn" onclick="switchView('settings')">Settings</button>
+                    <button class="nav-btn" onclick="switchView('quiz')">Quiz</button>
                     <button class="nav-btn" onclick="switchView('admin')" id="nav-admin"
                         style="display:none; color:var(--danger);">Admin</button>
                     <button class="nav-btn" onclick="toggleTheme()" id="themeToggle"
@@ -319,6 +320,49 @@
                             <button onclick="downloadCSV()" class="btn-large btn-secondary"
                                 style="font-size:1rem; padding:10px 20px;">Download CSV</button>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: QUIZ -->
+            <div id="view-quiz" class="section-content">
+                <div class="card" style="text-align:center;">
+                    <h2 style="color:var(--primary);">🧠 Conservation Quiz</h2>
+                    <p>Answer questions to earn points and badges!</p>
+
+                    <div id="quiz-start-screen">
+                        <div style="font-size:3rem; margin:20px;">❓</div>
+                        <p>Ready to test your knowledge?</p>
+                        <button class="btn-large btn-primary" onclick="startQuiz()">Start Quiz</button>
+                    </div>
+
+                    <div id="quiz-question-screen"
+                        style="display:none; text-align:left; max-width:600px; margin:0 auto;">
+                        <div class="progress-bar"
+                            style="background:#eee; height:10px; border-radius:5px; margin-bottom:20px;">
+                            <div id="quizProgress"
+                                style="background:var(--primary); width:0%; height:100%; border-radius:5px;"></div>
+                        </div>
+                        <h3 id="questionText">Question goes here?</h3>
+                        <div id="optionsContainer"
+                            style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
+                            <!-- Buttons injected here -->
+                        </div>
+                    </div>
+
+                    <div id="quiz-result-screen" style="display:none;">
+                        <h3>Result</h3>
+                        <div id="scoreDisplay" style="font-size:2rem; font-weight:bold;">3/3</div>
+                        <div id="newBadges" style="display:flex; justify-content:center; gap:10px; margin:20px;"></div>
+                        <button class="btn-large btn-primary" onclick="startQuiz()">Play Again</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>🏆 Your Achievements</h3>
+                    <div class="value" id="totalPoints">0 Points</div>
+                    <div id="badgesContainer" style="display:flex; flex-wrap:wrap; gap:15px; margin-top:20px;">
+                        <!-- Badges injected here -->
                     </div>
                 </div>
             </div>

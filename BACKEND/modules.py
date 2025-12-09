@@ -18,6 +18,8 @@ class User(db.Model):
     energy_entries = db.relationship('EnergyEntry', backref='user', lazy=True)
     water_entries = db.relationship('WaterEntry', backref='user', lazy=True)
     notifications = db.relationship('Notification', backref='user', lazy=True)
+    quiz_scores = db.relationship('QuizScore', backref='user', lazy=True)
+    achievements = db.relationship('Achievement', backref='user', lazy=True)
 
 class EnergyEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -82,3 +84,18 @@ class Tariff(db.Model):
     default_limit = db.Column(db.Float, default=0)
     
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class QuizScore(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    score = db.Column(db.Integer, nullable=False)
+    max_score = db.Column(db.Integer, default=3)
+    quiz_date = db.Column(db.DateTime, default=datetime.utcnow)
+    
+class Achievement(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    icon = db.Column(db.String(10), nullable=False) # Emoji or class name
+    description = db.Column(db.String(255))
+    earned_at = db.Column(db.DateTime, default=datetime.utcnow)
