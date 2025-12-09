@@ -3,7 +3,11 @@
  * Supports new UI with separated Water/Energy themes and real-time previews.
  */
 
-const API_BASE = 'http://localhost:5000/api';
+// Use current origin for API (works for both local and cloud if served together)
+/* const API_BASE = 'http://localhost:5000/api'; */
+const API_BASE = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
+    ? 'http://127.0.0.1:5000/api'
+    : '/api';
 
 let currentUser = null;
 let userCategories = [];
