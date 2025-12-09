@@ -1,5 +1,6 @@
 from flask import Flask, send_from_directory
 from flask_cors import CORS
+from flask_mail import Mail
 from database import db
 from config import Config
 from routes.auth import auth_bp
@@ -11,6 +12,11 @@ app = Flask(__name__)
 app.config.from_object(Config)
 CORS(app)
 db.init_app(app)
+
+# Ensure tables exist (Render/Gunicorn)
+with app.app_context():
+    db.create_all()
+mail = Mail(app)
 
 # Register Blueprints
 app.register_blueprint(auth_bp, url_prefix='/api')
