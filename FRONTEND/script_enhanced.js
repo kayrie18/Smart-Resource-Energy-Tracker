@@ -34,16 +34,21 @@ document.addEventListener('DOMContentLoaded', function () {
     if (reportStart) reportStart.value = lastWeek.toISOString().split('T')[0];
 
     // Check login - Auto-login disabled per user request
-    /*
+    // Check login - Auto-login logic
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        showApp();
+        try {
+            currentUser = JSON.parse(savedUser);
+            // Optional: Verify token with backend here if token based auth was implemented
+            showApp();
+        } catch (e) {
+            console.error('Error parsing saved user', e);
+            showLanding();
+        }
     } else {
         showLanding();
     }
-    */
-    showLanding(); // Always show landing first
+
 
 
     // Load categories for registration
@@ -217,7 +222,16 @@ async function loadUserCategories() {
 
         const select = document.getElementById('userCategory');
         if (select) {
-            select.innerHTML = '<option value="single">Single User</option>'; // Default fallback
+            select.innerHTML = ''; // Clear to prevent duplication
+
+            if (userCategories.length === 0) {
+                // Fallback if API returns empty
+                const opt = document.createElement('option');
+                opt.value = 'single';
+                opt.innerText = 'Single User';
+                select.appendChild(opt);
+            }
+
             userCategories.forEach(cat => {
                 const opt = document.createElement('option');
                 opt.value = cat.id;
@@ -225,7 +239,14 @@ async function loadUserCategories() {
                 select.appendChild(opt);
             });
         }
-    } catch (e) { console.error('Error loading categories', e); }
+    } catch (e) {
+        console.error('Error loading categories', e);
+        // Fallback on error
+        const select = document.getElementById('userCategory');
+        if (select && select.options.length === 0) {
+            select.innerHTML = '<option value="single">Single User</option>';
+        }
+    }
 }
 
 function toggleFamilyMembers() {
