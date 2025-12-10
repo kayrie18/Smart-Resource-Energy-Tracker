@@ -124,12 +124,21 @@ async function loadUserProfile() {
     if (!currentUser) return;
     try {
         const res = await fetch(`${API_BASE}/user/${currentUser.user_id}`);
-        const profile = await res.json();
-        if (res.ok) {
-            displayUserProfile(profile);
+        if (!res.ok) {
+            console.warn('Profile load failed, likely stale session. Logging out.');
+            logout();
+            return;
         }
+        const profile = await res.json();
+        if (profile.error) {
+            logout();
+            return;
+        }
+        displayUserProfile(profile);
     } catch (e) {
         console.error('Error loading user profile', e);
+        // If network error or critical fail, safer to logout to reset state
+        // logout(); 
     }
 }
 
