@@ -164,58 +164,71 @@ def generate_conservation_tips(energy_entries, water_entries, user):
     """Generate personalized conservation tips based on usage"""
     tips = []
     
-    # Analyze LATEST Entry (Specific Feedback)
+    # --- Energy Tips ---
+    has_energy_alert = False
+    
+    # 1. Check Spikes
     if energy_entries:
         last_energy = energy_entries[-1]
-        if last_energy.electricity_usage > 15: # High single-day threshold
+        if last_energy.electricity_usage > 15: 
             tips.append({
-                'title': 'Latest Energy Spike',
-                'detail': f"Your last reading of {last_energy.electricity_usage} kWh was quite high. Check for heavy appliances left on."
+                'title': '[Energy] High Recent Usage',
+                'detail': f"Last reading: {last_energy.electricity_usage} kWh. Check for appliances left on."
             })
+            has_energy_alert = True
             
-    if water_entries:
-        last_water = water_entries[-1]
-        if last_water.water_usage > 400: # High single-day threshold
-            tips.append({
-                'title': 'Latest Water Spike',
-                'detail': f"Your last reading of {last_water.water_usage} L was higher than usual. Check for leaks or long irrigation."
-            })
-
-    # Calculate averages
+    # 2. Check Averages
     avg_energy = sum(e.electricity_usage for e in energy_entries) / len(energy_entries) if energy_entries else 0
-    avg_water = sum(w.water_usage for w in water_entries) / len(water_entries) if water_entries else 0
-    
-    # Energy Tips (Average)
     if avg_energy > 10: 
         tips.append({
-            'title': 'High Average Energy',
-            'detail': 'Your daily average is high. Switch to LED bulbs and turn off AC when not needed.'
+            'title': '[Energy] High Daily Average',
+            'detail': 'Consider switching to LED bulbs and managing AC usage to lower your daily average.'
         })
+        has_energy_alert = True
     
-    if user.user_category == 'family' and avg_energy > 20:
+    # 3. Always show distinct Energy Tip if no critical alerts
+    if not has_energy_alert:
         tips.append({
-            'title': 'Family Energy Saving',
-            'detail': 'Schedule laundry for off-peak hours if possible.'
+            'title': '[Energy] Efficient Habits',
+            'detail': 'Great job keeping usage low! Remember to unplug electronics to avoid phantom load.'
         })
 
-    # Water Tips (Average)
+
+    # --- Water Tips ---
+    has_water_alert = False
+    
+    # 1. Check Spikes
+    if water_entries:
+        last_water = water_entries[-1]
+        if last_water.water_usage > 400:
+            tips.append({
+                'title': '[Water] High Recent Usage',
+                'detail': f"Last reading: {last_water.water_usage} L. Check for visible leaks around the house."
+            })
+            has_water_alert = True
+
+    # 2. Check Averages
+    avg_water = sum(w.water_usage for w in water_entries) / len(water_entries) if water_entries else 0
     if avg_water > 300: 
         tips.append({
-            'title': 'High Average Water',
-            'detail': 'Your daily water usage is high. Check for leaking taps and shorten showers.'
+            'title': '[Water] High Daily Average',
+            'detail': 'Shorten showers by 2 minutes to save up to 40 liters per day.'
+        })
+        has_water_alert = True
+        
+    # 3. Always show distinct Water Tip if no critical alerts
+    if not has_water_alert:
+         tips.append({
+            'title': '[Water] Conservation Pro',
+            'detail': 'Your water usage is efficient. Check taps occasionally to ensure no new leaks form.'
         })
         
-    # General Tips if too few tips
-    if len(tips) < 2:
+    # --- General / Encouragement ---
+    # Only add if total tips are few
+    if len(tips) < 3:
         tips.append({
-            'title': 'General Tip',
-            'detail': 'Unplug electronics when not in use to stop phantom energy drain.'
-        })
-    
-    if not tips:
-        tips.append({
-            'title': 'Great Job!',
-            'detail': 'Your consumption is within efficient limits. Keep it up!'
+            'title': '[General] Sustainable Living',
+            'detail': 'Small changes add up! You are making a difference for the planet.'
         })
         
     return tips
